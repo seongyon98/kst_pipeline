@@ -1,0 +1,19 @@
+name: Notify Slack on Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  slack-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Send message to Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          text: "New push to the main branch: ${{ github.sha }}"

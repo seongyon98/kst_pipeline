@@ -1,19 +1,21 @@
 name: Notify Slack on Push
-
-on:
-  push:
-    branches:
-      - main
-
+on: push
 jobs:
-  slack-notify:
+  slack_notification:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Check out repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # 전체 Git 히스토리를 가져오도록 설정
 
-      - name: Send message to Slack
-        uses: 8398a7/action-slack@v3
-        with:
-          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          text: "New push to the main branch: ${{ github.sha }}"
+    - name: Send Slack notification
+      run: |
+        COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+        AUTHOR_NAME=$(git log -1 --pretty=format:'%an')
+        FILES_CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD)
+        BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's|refs/heads/||')
+        # Slack 메시지 포맷
+        curl -X POST -H 'Content-type: application/json' --data "{
+          \"text\":\":rocket: *New Push by [$AUTHOR_NAME]*\n\n*Branch:* $BRANCH_NAME\n\n*Files Changed:*\n\`\`\`$FILES_CHANGED\`\`\`\n\n*Commit Message:*\n\`\`\`$COMMIT_MESSAGE\`\`\`\"
+        }" ${{ secrets.SLACK_WEBHOOK_URL }}

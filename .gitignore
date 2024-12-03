@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-graphviz
-=======
 # Conda virtual environment
 .env/
 .venv/
 *.conda
->>>>>>> origin/main

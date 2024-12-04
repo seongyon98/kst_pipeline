@@ -18,5 +18,5 @@ jobs:
         FILES_COUNT=$(echo "$FILES_CHANGED" | wc -l)
         # Slack 메시지 포맷
         curl -X POST -H 'Content-type: application/json' --data "{
-          \"text\":\":wave: *새로운 푸시가 도착했어요!*\n\n:technologist: *작성자:* $AUTHOR_NAME 님\n:label: *브랜치:* \`$BRANCH_NAME\`\n:file_folder: *변경된 파일 목록 ($FILES_COUNT개):*\n\`\`\`$FILES_CHANGED\`\`\`\n:speech_balloon: *커밋 메시지:*\n\`\`\`$COMMIT_MESSAGE\`\`\`\n:rocket: *모두 멋진 하루 되세요! 💪*\" 
+          \"text\":\":wave: *새로운 푸시가 도착했어요!*\n\n:technologist: *작성자:* $AUTHOR_NAME 님\n:label: *브랜치:* \`$BRANCH_NAME\`\n:file_folder: *변경된 파일 목록 ($FILES_COUNT개):*\n\`\`\`$FILES_CHANGED\`\`\`\n:speech_balloon: *커밋 메시지:*\n\`\`\`$COMMIT_MESSAGE\`\`\`\n:rocket: *오늘도 5시 50분 귀가 염원 💪*\" 
         }" ${{ secrets.SLACK_WEBHOOK_URL }}

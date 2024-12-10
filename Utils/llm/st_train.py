@@ -1,31 +1,42 @@
 import os
 import json
-import torch
+import boto3
 from torch.utils.data import Dataset, DataLoader
-import torch.nn as nn
 from sentence_transformers import SentenceTransformer
+import torch
+from torch import nn
 from torch.optim import AdamW
+
+
+# S3 버킷에서 JSON 파일 읽는 함수
+def load_json_from_s3(bucket_name, file_key):
+    s3_client = boto3.client("s3")
+    obj = s3_client.get_object(Bucket=bucket_name, Key=file_key)
+    return json.loads(obj["Body"].read().decode("utf-8"))
 
 
 # 1. Custom Dataset 정의
 class MathTopicDataset(Dataset):
-    def __init__(self, json_dir, label_mapping):
+    def __init__(self, bucket_name, prefix, label_mapping):
         self.data = []
+        self.bucket_name = bucket_name
+        self.prefix = prefix
         self.label_mapping = label_mapping
 
-        # 데이터 로드
-        for root, _, files in os.walk(json_dir):
-            for file in files:
-                if file.endswith(".json"):
-                    filepath = os.path.join(root, file)
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        item = json.load(f)
-                        self.data.append(
-                            {
-                                "text": item["question_text"],
-                                "label": label_mapping[item["question_topic_name"]],
-                            }
-                        )
+        # S3에서 데이터 로드
+        s3_client = boto3.client("s3")
+        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+
+        for content in response.get("Contents", []):
+            file_key = content["Key"]
+            if file_key.endswith(".json"):
+                item = load_json_from_s3(bucket_name, file_key)
+                self.data.append(
+                    {
+                        "text": item["question_text"],
+                        "label": label_mapping[item["question_topic_name"]],
+                    }
+                )
 
     def __len__(self):
         return len(self.data)
@@ -52,7 +63,8 @@ class SentenceTransformerClassifier(nn.Module):
 # 3. 학습 코드
 def main():
     # 설정
-    json_dir = "./data/training"  # 학습 데이터 경로
+    bucket_name = "big9-project-02-training-data"  # S3 버킷 이름
+    base_prefix = "image_to_text/training/output_label_st/"  # S3에서 데이터 경로 (예: image_to_text/training/output_label_st/)
     batch_size = 16
     num_epochs = 5
     learning_rate = 2e-5
@@ -60,22 +72,26 @@ def main():
         "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
 
-    # 라벨 매핑 생성
+    # grade_3부터 grade_6까지의 각 폴더에 대해 학습 데이터 로드
     label_mapping = {}
-    for root, _, files in os.walk(json_dir):
-        for file in files:
-            if file.endswith(".json"):
-                filepath = os.path.join(root, file)
-                with open(filepath, "r", encoding="utf-8") as f:
-                    item = json.load(f)
-                    label_mapping[item["question_topic_name"]] = label_mapping.get(
-                        item["question_topic_name"], len(label_mapping)
-                    )
+    s3_client = boto3.client("s3")
+
+    for grade in range(3, 7):  # grade_3부터 grade_6까지
+        grade_prefix = f"{base_prefix}grade_{grade}/"
+        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=grade_prefix)
+
+        for content in response.get("Contents", []):
+            file_key = content["Key"]
+            if file_key.endswith(".json"):
+                item = load_json_from_s3(bucket_name, file_key)
+                label_mapping[item["question_topic_name"]] = label_mapping.get(
+                    item["question_topic_name"], len(label_mapping)
+                )
 
     print(f"총 라벨 수: {len(label_mapping)}")
 
     # Dataset 및 DataLoader 초기화
-    dataset = MathTopicDataset(json_dir, label_mapping)
+    dataset = MathTopicDataset(bucket_name, base_prefix, label_mapping)
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(

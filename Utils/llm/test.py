@@ -2,6 +2,10 @@ import openai
 import os
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+import torch
 
 # .env 파일 로드
 load_dotenv()
@@ -49,40 +53,177 @@ def preprocess_keywords(raw_keywords):
     return [kw.lower() for kw in keywords]
 
 
-# 자카드 유사도 계산 함수
-def jaccard_similarity(str1, str2):
-    set1 = set(str1)
-    set2 = set(str2)
-    return float(len(set1 & set2)) / len(set1 | set2)
+# 시드 고정
+def set_seed(seed=12345):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
-# 하위 노드만 찾는 함수
-def find_similar_leaf_nodes_from_graph(keywords, category):
-    query = """
-    MATCH (c:Category {name: $category})-[:HAS_CHILD*]->(i:Item)
-    WHERE NOT (i)-[:HAS_CHILD]->()  // 최하위 노드만 선택
-    RETURN i.name AS item
+# 시드 고정 설정
+set_seed()
+
+# SentenceTransformer 모델 로드
+model = SentenceTransformer(
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
+
+
+def calculate_similarity(keyword, item_name):
+    """
+    키워드와 항목 이름 간 임베딩 기반 코사인 유사도 계산.
+    :param keyword: 키워드 문자열
+    :param item_name: 항목 이름 문자열
+    :return: 코사인 유사도 (0~1)
+    """
+    embeddings = model.encode([keyword, item_name])
+    return cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
+
+
+def find_similar_nodes_from_graph(keywords, category, level, similarity_threshold=0.8):
+    """
+    특정 카테고리 내에서 레벨별로 키워드와 유사도가 높은 항목을 탐색.
+    :param keywords: 키워드 리스트
+    :param category: 대분류/중분류 이름
+    :param level: 검색할 노드의 레벨 ("Subcategory", "Leaf" 등)
+    :param similarity_threshold: 유사도 임계값
+    :return: 유사도가 높은 노드 리스트
+    """
+    query = f"""
+    MATCH (c {{name: $category}})-[:HAS_CHILD]->(n:{level})
+    RETURN n.name AS node_name
     """
     results = session.run(query, category=category)
-    leaf_nodes = [record["item"].lower() for record in results]
+    nodes = [record["node_name"] for record in results]
 
-    matched_items = []
+    matched_nodes = []
 
-    for item_name in leaf_nodes:
+    for node in nodes:
+        similarities = []
         for keyword in keywords:
-            similarity = jaccard_similarity(keyword, item_name)
-            print(
-                f"키워드 '{keyword}' vs 데이터베이스 항목 '{item_name}': 유사도 {similarity:.2f}"
-            )  # 디버깅용
-            if similarity > 0.15:
-                matched_items.append(item_name)
+            similarity = calculate_similarity(keyword, node)
+            similarities.append(similarity)
+            print(f"키워드 '{keyword}' vs 노드 '{node}': 유사도 {similarity:.2f}")
+        average_similarity = sum(similarities) / len(similarities)
+        print(f"노드 '{node}'의 평균 유사도: {average_similarity:.2f}")
+        if average_similarity >= similarity_threshold:
+            matched_nodes.append(node)
 
-    return list(set(matched_items))  # 중복 제거
+    return list(set(matched_nodes))
 
 
-# 분류 검증하는 LLM 함수
-def verify_classification_with_llm(classification, original_problem):
-    prompt = f"수학 문제 '{original_problem}'이 분류 '{classification}'에 적합한지만 반환해주세요. '적합' 또는 '부적합'으로 대답해주세요."
+def find_most_similar_node(keywords, category, level):
+    """
+    특정 카테고리 내에서 가장 유사한 노드를 찾는다.
+    :param keywords: 키워드 리스트
+    :param category: 대분류/중분류 이름
+    :param level: 검색할 노드의 레벨 ("Subcategory", "Leaf" 등)
+    :return: 가장 유사한 노드 이름
+    """
+    query = f"""
+    MATCH (c {{name: $category}})-[:HAS_CHILD]->(n:{level})
+    RETURN n.name AS node_name
+    """
+    results = session.run(query, category=category)
+    nodes = [record["node_name"] for record in results]
+
+    best_match = None
+    highest_similarity = 0
+
+    for node in nodes:
+        similarities = []
+        for keyword in keywords:
+            similarity = calculate_similarity(keyword, node)
+            similarities.append(similarity)
+        average_similarity = sum(similarities) / len(similarities)
+        if average_similarity > highest_similarity:
+            highest_similarity = average_similarity
+            best_match = node
+
+    return best_match
+
+
+def find_subcategories(keywords, category, similarity_threshold=0.5):
+    """
+    대분류(category)에서 중분류를 찾는다.
+    :param keywords: 키워드 리스트
+    :param category: 대분류 이름
+    :param similarity_threshold: 유사도 임계값
+    :return: 중분류 리스트
+    """
+    subcategories = find_similar_nodes_from_graph(
+        keywords,
+        category,
+        level="Subcategory",
+        similarity_threshold=similarity_threshold,
+    )
+
+    if not subcategories:
+        print(f"중분류를 찾을 수 없습니다. 대분류: {category}")
+        # 가장 유사도 높은 중분류 선택
+        best_match = find_most_similar_node(keywords, category, level="Subcategory")
+        if best_match:
+            subcategories = [best_match]
+
+    return subcategories
+
+
+def find_leaf_nodes(keywords, category_name, similarity_threshold=0.6):
+    # 중분류 찾기
+    subcategories = find_subcategories(keywords, category_name, similarity_threshold)
+    if not subcategories:
+        print(f"중분류를 찾을 수 없습니다. 대분류: {category_name}")
+        return []
+
+    leaf_nodes = []
+    for subcategory in subcategories:
+        print(f"중분류 '{subcategory}'에서 하위 노드 탐색 시작")
+        # 해당 중분류에 연결된 item 찾기
+        items = find_similar_nodes_from_graph(
+            keywords,
+            subcategory,
+            level="Item",
+            similarity_threshold=similarity_threshold,
+        )
+        if not items:
+            print(f"중분류 '{subcategory}'에 연결된 item이 없습니다.")
+            continue
+        print(f"중분류 '{subcategory}'에 연결된 item: {items}")
+
+        for item in items:
+            # 해당 item에 연결된 leaf 찾기
+            query = """
+            MATCH (i:Item {name: $item})-[:HAS_CHILD]->(ln:Leaf)
+            RETURN ln.name AS leaf
+            """
+            result = session.run(query, item=item)
+            leaf_candidates = [record["leaf"] for record in result]
+
+            for leaf in leaf_candidates:
+                # 최하위 노드(leaf) 유사도 검증
+                leaf_similarity = calculate_similarity(keywords, leaf)
+                if leaf_similarity >= similarity_threshold:
+                    print(
+                        f"최하위 노드 '{leaf}'는 유사도 {leaf_similarity:.2f}로 선택됨"
+                    )
+                    leaf_nodes.append(leaf)
+                else:
+                    print(
+                        f"최하위 노드 '{leaf}'는 유사도 {leaf_similarity:.2f}로 선택되지 않음"
+                    )
+
+    print(f"최종 선택된 하위 노드(leaf nodes): {leaf_nodes}")
+    return list(set(leaf_nodes))
+
+
+def verify_classification_with_llm(classification, keywords):
+    prompt = (
+        f"다음 키워드: {', '.join(keywords)} 가 분류 '{classification}'에 정확히 적합한지 평가해주세요. "
+        "해당 분류가 키워드 모두와 직접적으로 연관되어야 합니다. "
+        "적합하지 않다면 '부적합'으로, 적합하다면 '적합'으로만 대답해주세요. "
+        "예를 들어, 키워드 '덧셈'이 분류 '곱셈'에 해당하는 경우 '부적합'으로 응답해야 합니다."
+    )
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -97,30 +238,50 @@ def verify_classification_with_llm(classification, original_problem):
     return result
 
 
-# 전체 파이프라인 실행 함수
 def process_math_problem(problem):
     # 1단계: 키워드 및 대분류 추출
     raw_keywords_and_category = extract_keywords_and_category_from_math_problem(problem)
     print(f"추출된 키워드 및 대분류 (원본): {raw_keywords_and_category}")
 
     # 키워드와 대분류 분리
-    raw_keywords, most_similar_category = raw_keywords_and_category.split("\n대분류: ")
+    try:
+        raw_keywords, most_similar_category = raw_keywords_and_category.split(
+            "\n대분류: "
+        )
+    except ValueError:
+        print("응답 형식이 맞지 않습니다. 기본값으로 '수와 연산'을 사용합니다.")
+        raw_keywords = raw_keywords_and_category
+        most_similar_category = "수와 연산"
+
     keywords = preprocess_keywords(raw_keywords)
     print(f"전처리된 키워드: {keywords}")
     print(f"가장 유사한 대분류: {most_similar_category}")
 
-    # 2단계: 하위 노드에서 유사한 항목 찾기
-    matched_items = find_similar_leaf_nodes_from_graph(keywords, most_similar_category)
-    print(f"찾은 하위 노드 항목: {matched_items}")
+    # 2단계: 하위 노드 탐색
+    leaf_nodes = find_leaf_nodes(
+        keywords, most_similar_category, similarity_threshold=0.6
+    )
+    if not leaf_nodes:
+        print("하위 노드를 찾을 수 없습니다. 프로세스를 종료합니다.")
+        return
 
-    # 3단계: 항목 검증
-    for item in matched_items:
-        verification = verify_classification_with_llm(item, problem)
-        print(f"항목 '{item}' 검증 결과: {verification}")
+    print(f"찾은 하위 노드: {leaf_nodes}")
+
+    # 3단계: 최종 검증
+    verified_labels = []
+    for leaf in leaf_nodes:
+        verification = verify_classification_with_llm(leaf, keywords)
+        if verification == "적합":
+            verified_labels.append(leaf)
+
+    if verified_labels:
+        print(f"최종 라벨: {verified_labels}")
+    else:
+        print("적합한 라벨을 찾을 수 없습니다.")
 
 
 # 예시 수학 문제
-problem = "소연이는 $10000$ 원짜리 손수건을 사려고 합니다. 소연이의 지갑에 $9000$ 원이 있다면 얼마가 더 있어야 손수건을 살 수 있는지 구해 보세요."
+problem = "3 + 5는?"
 process_math_problem(problem)
 
 # Neo4j 세션 종료

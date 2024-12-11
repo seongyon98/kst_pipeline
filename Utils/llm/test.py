@@ -2,10 +2,10 @@ import openai
 import os
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-import torch
+from neo4j_graphrag.embeddings import OpenAIEmbeddings
+from neo4j_graphrag.generation import GraphRAG
+from neo4j_graphrag.llm import OpenAILLM
+from neo4j_graphrag.retrievers import VectorRetriever
 
 # .env 파일 로드
 load_dotenv()
@@ -15,10 +15,17 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 uri = os.getenv("NEO4J_URI")
 username = os.getenv("NEO4J_USERNAME")
 password = os.getenv("NEO4J_PASSWORD")
+INDEX_NAME = "vector-index-name"
 
 # Neo4j 데이터베이스 연결
 driver = GraphDatabase.driver(uri, auth=(username, password))
 session = driver.session()
+
+# GraphRAG 설정
+embedder = OpenAIEmbeddings(model="text-embedding-3-large")
+retriever = VectorRetriever(driver, INDEX_NAME, embedder)
+llm = OpenAILLM(model_name="gpt-4o", model_params={"temperature": 0})
+rag = GraphRAG(retriever=retriever, llm=llm)
 
 
 # LLM을 사용한 수학 키워드 및 대분류 추출 함수
@@ -64,22 +71,6 @@ def set_seed(seed=12345):
 # 시드 고정 설정
 set_seed()
 
-# SentenceTransformer 모델 로드
-model = SentenceTransformer(
-    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-)
-
-
-def calculate_similarity(keyword, item_name):
-    """
-    키워드와 항목 이름 간 임베딩 기반 코사인 유사도 계산.
-    :param keyword: 키워드 문자열
-    :param item_name: 항목 이름 문자열
-    :return: 코사인 유사도 (0~1)
-    """
-    embeddings = model.encode([keyword, item_name])
-    return cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
-
 
 def find_similar_nodes_from_graph(keywords, category, level, similarity_threshold=0.8):
     """
@@ -90,88 +81,36 @@ def find_similar_nodes_from_graph(keywords, category, level, similarity_threshol
     :param similarity_threshold: 유사도 임계값
     :return: 유사도가 높은 노드 리스트
     """
-    query = f"""
-    MATCH (c {{name: $category}})-[:HAS_CHILD]->(n:{level})
-    RETURN n.name AS node_name
+    # GraphRAG를 사용하여 유사도 검색
+    query_text = f"Find nodes related to {', '.join(keywords)} in category {category} at level {level}"
+    response = rag.search(query_text=query_text, retriever_config={"top_k": 5})
+
+    # 결과에서 유사도 높은 노드들을 필터링
+    matched_nodes = [
+        node for node in response.answer if node["similarity"] >= similarity_threshold
+    ]
+
+    return [node["name"] for node in matched_nodes]
+
+
+def find_subcategories(keywords, category):
     """
-    results = session.run(query, category=category)
-    nodes = [record["node_name"] for record in results]
-
-    matched_nodes = []
-
-    for node in nodes:
-        similarities = []
-        for keyword in keywords:
-            similarity = calculate_similarity(keyword, node)
-            similarities.append(similarity)
-            print(f"키워드 '{keyword}' vs 노드 '{node}': 유사도 {similarity:.2f}")
-        average_similarity = sum(similarities) / len(similarities)
-        print(f"노드 '{node}'의 평균 유사도: {average_similarity:.2f}")
-        if average_similarity >= similarity_threshold:
-            matched_nodes.append(node)
-
-    return list(set(matched_nodes))
-
-
-def find_most_similar_node(keywords, category, level):
-    """
-    특정 카테고리 내에서 가장 유사한 노드를 찾는다.
-    :param keywords: 키워드 리스트
-    :param category: 대분류/중분류 이름
-    :param level: 검색할 노드의 레벨 ("Subcategory", "Leaf" 등)
-    :return: 가장 유사한 노드 이름
-    """
-    query = f"""
-    MATCH (c {{name: $category}})-[:HAS_CHILD]->(n:{level})
-    RETURN n.name AS node_name
-    """
-    results = session.run(query, category=category)
-    nodes = [record["node_name"] for record in results]
-
-    best_match = None
-    highest_similarity = 0
-
-    for node in nodes:
-        similarities = []
-        for keyword in keywords:
-            similarity = calculate_similarity(keyword, node)
-            similarities.append(similarity)
-        average_similarity = sum(similarities) / len(similarities)
-        if average_similarity > highest_similarity:
-            highest_similarity = average_similarity
-            best_match = node
-
-    return best_match
-
-
-def find_subcategories(keywords, category, similarity_threshold=0.5):
-    """
-    대분류(category)에서 중분류를 찾는다.
+    대분류(category)에서 가장 유사한 중분류 하나를 찾는다.
     :param keywords: 키워드 리스트
     :param category: 대분류 이름
-    :param similarity_threshold: 유사도 임계값
-    :return: 중분류 리스트
+    :return: 가장 유사한 중분류
     """
-    subcategories = find_similar_nodes_from_graph(
-        keywords,
-        category,
-        level="Subcategory",
-        similarity_threshold=similarity_threshold,
-    )
+    best_match = find_similar_nodes_from_graph(keywords, category, level="Subcategory")
+    if best_match:
+        return best_match
 
-    if not subcategories:
-        print(f"중분류를 찾을 수 없습니다. 대분류: {category}")
-        # 가장 유사도 높은 중분류 선택
-        best_match = find_most_similar_node(keywords, category, level="Subcategory")
-        if best_match:
-            subcategories = [best_match]
-
-    return subcategories
+    print(f"중분류를 찾을 수 없습니다. 대분류: {category}")
+    return []
 
 
-def find_leaf_nodes(keywords, category_name, similarity_threshold=0.6):
+def find_leaf_nodes(keywords, category_name, similarity_threshold=0.8):
     # 중분류 찾기
-    subcategories = find_subcategories(keywords, category_name, similarity_threshold)
+    subcategories = find_subcategories(keywords, category_name)
     if not subcategories:
         print(f"중분류를 찾을 수 없습니다. 대분류: {category_name}")
         return []
@@ -217,27 +156,6 @@ def find_leaf_nodes(keywords, category_name, similarity_threshold=0.6):
     return list(set(leaf_nodes))
 
 
-def verify_classification_with_llm(classification, keywords):
-    prompt = (
-        f"다음 키워드: {', '.join(keywords)} 가 분류 '{classification}'에 정확히 적합한지 평가해주세요. "
-        "해당 분류가 키워드 모두와 직접적으로 연관되어야 합니다. "
-        "적합하지 않다면 '부적합'으로, 적합하다면 '적합'으로만 대답해주세요. "
-        "예를 들어, 키워드 '덧셈'이 분류 '곱셈'에 해당하는 경우 '부적합'으로 응답해야 합니다."
-    )
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        max_tokens=50,
-        temperature=0.5,
-    )
-    result = response.choices[0].message["content"].strip()
-    print(f"LLM 응답: {result}")  # 응답 메시지 출력 (디버깅용)
-    return result
-
-
 def process_math_problem(problem):
     # 1단계: 키워드 및 대분류 추출
     raw_keywords_and_category = extract_keywords_and_category_from_math_problem(problem)
@@ -279,10 +197,6 @@ def process_math_problem(problem):
     else:
         print("적합한 라벨을 찾을 수 없습니다.")
 
-
-# 예시 수학 문제
-problem = "3 + 5는?"
-process_math_problem(problem)
 
 # Neo4j 세션 종료
 session.close()

@@ -2,3 +2,6 @@
 .env/
 .venv/
 *.conda
+*.txt
+*.json
+*.png

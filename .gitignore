@@ -3,3 +3,6 @@
 .venv/
 *.conda
 .env
+*.txt
+*.png
+*.json

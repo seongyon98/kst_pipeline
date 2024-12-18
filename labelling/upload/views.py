@@ -35,6 +35,7 @@ HOST = os.getenv("MONGO_HOST")
 PORT = os.getenv("MONGO_PORT")
 DATABASE = os.getenv("MONGO_DB")
 MONGO_URI = f"mongodb://<{USERNAME}>:<{PASSWORD}>@<{HOST}>:<{PORT}>/<{DATABASE}>"
+
 client = MongoClient(MONGO_URI)
 db = client[os.getenv("DATABASE_NAME")]
 collection = db[os.getenv("COLLECTION_NAME")]

@@ -30,7 +30,7 @@ h1, h2 {
 }
 
 /* 버튼 및 입력 필드 스타일 */
-button, input {
+button, input, textarea {
   margin: 10px 0;
   padding: 12px;
   width: 100%;
@@ -43,7 +43,7 @@ button, input {
   transition: all 0.3s ease;
 }
 
-button:hover, input:hover {
+button:hover, input:hover, textarea:hover {
   background-color: #e0e0e0;
 }
 
@@ -93,6 +93,12 @@ button:disabled {
 
 #show-result-btn:hover {
   background-color: #45a049;
+}
+
+/* 텍스트 입력 필드 스타일 */
+textarea {
+  resize: vertical;
+  min-height: 150px;
 }
 
 /* 작은 화면에서의 반응형 디자인 */

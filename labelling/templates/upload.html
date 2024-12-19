@@ -13,13 +13,24 @@
     <div class="container">
       <h1>자동 라벨링 시스템</h1>
 
-      <!-- 파일 업로드 -->
+      <!-- 문제 데이터 입력 -->
       <h2>1. 문제 데이터 입력</h2>
+
+      <!-- 파일 업로드 섹션 -->
       <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" name="file" id="file-input" required="required">
+        <label for="file-input">파일 업로드:</label>
+        <input type="file" name="file" id="file-input">
         <button type="button" onclick="uploadFile()">파일 업로드</button>
       </form>
+
       <p id="upload-status"></p>
+
+      <!-- 텍스트 입력 섹션 -->
+      <h3>또는 문제 텍스트 입력</h3>
+      <form id="text-form">
+        <textarea id="text-input" name="text" rows="5" cols="50" placeholder="문제를 입력하세요..." required="required"></textarea>
+        <button type="button" onclick="uploadText()">텍스트 업로드</button>
+      </form>
 
       <!-- 프로그래스바 -->
       <div id="progress-container" style="display: none;">

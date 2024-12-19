@@ -84,7 +84,10 @@ MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST")
 MONGO_PORT = os.getenv("MONGO_PORT")
 MONGO_DATABASE = os.getenv("MONGO_DB")
-MONGO_URI = f"mongodb://<{MONGO_USERNAME}>:<{MONGO_PASSWORD}>@<{MONGO_HOST}>:<{MONGO_PORT}>/<{MONGO_DATABASE}>"
+
+# MongoDB 연결 URI 생성
+MONGO_URI = f"mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/{MONGO_DATABASE}?authSource=admin"
+
 
 DATABASES = {
     "default": {

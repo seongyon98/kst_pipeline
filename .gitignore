@@ -1,5 +1,8 @@
 # Conda virtual environment
-.env/
+.env
 .venv/
 *.conda
-.env
+.pem
+*.txt
+*.png
+*.json

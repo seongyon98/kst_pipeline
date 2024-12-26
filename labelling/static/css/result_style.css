@@ -1,0 +1,77 @@
+/* 기본 스타일 */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  /* 제목 스타일 */
+  h1, h2 {
+    color: #333;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  /* 컨테이너 스타일 */
+  .container {
+    width: 100%;
+    max-width: 800px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin: 20px;
+    box-sizing: border-box; /* 컨테이너의 크기를 box-sizing으로 맞추기 */
+  }
+  
+  /* 결과 내용 스타일 */
+  #results {
+    margin-top: 20px;
+    font-size: 16px;
+    color: #333;
+    white-space: pre-wrap; /* 줄 바꿈 처리 */
+    background-color: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+    word-wrap: break-word;
+  }
+  
+  /* 결과 조회 버튼 스타일 */
+  button {
+    margin-top: 20px;
+    padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    background-color: #4caf50;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  button:hover {
+    background-color: #45a049;
+  }
+  
+  button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  /* 작은 화면에서의 반응형 디자인 */
+  @media (max-width: 768px) {
+    .container {
+      width: 90%;
+    }
+  }
+  

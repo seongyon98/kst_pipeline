@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>{{ file_name }}
+      결과</title>
+    <link rel="stylesheet" href="{% static 'css/result_style.css' %}">
+
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>{{ file_name }}
+        결과</h1>
+      <div id="result">
+        <!-- 결과 데이터는 API를 통해 불러옵니다. -->
+      </div>
+      <a href="/file-list/" class="button">파일 목록으로 돌아가기</a>
+    </div>
+
+    <script src="{% static 'js/result_script.js' %}"></script>
+  </body>
+
+</html>

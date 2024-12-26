@@ -1,0 +1,29 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ko">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기본 페이지</title>
+    <link rel="stylesheet" href="{% static 'css/home_style.css' %}">
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>환영합니다!</h1>
+
+      <!-- 업로드 페이지로 이동하는 버튼 -->
+      <a href="{% url 'upload:upload_page' %}">
+        <button class="action-btn">파일 업로드 페이지</button>
+      </a>
+
+      <!-- 파일 목록 페이지로 이동하는 버튼 -->
+      <a href="{% url 'upload:file_list_page' %}">
+        <button class="action-btn">파일 목록 확인</button>
+      </a>
+    </div>
+  </body>
+
+</html>

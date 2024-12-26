@@ -20,5 +20,5 @@ from django.urls import path, include  # include 추가
 
 urlpatterns = [
     path("admin/", admin.site.urls),  # 관리자 페이지
-    path("", include("upload.urls")),  # labelling 앱 URL 추가
+    path("", include("upload.urls", namespace="upload")),  # labelling 앱 URL 추가
 ]

@@ -18,19 +18,31 @@
 
       <!-- 파일 업로드 섹션 -->
       <form id="upload-form" enctype="multipart/form-data">
+        {% csrf_token %}
         <label for="file-input">파일 업로드:</label>
-        <input type="file" name="file" id="file-input">
-        <button type="button" onclick="uploadFile()">파일 업로드</button>
+        <input type="file" name="file" id="file-input" multiple="multiple" onchange="updateFileList()">
+        <button type="button" onclick="uploadFiles()">파일 업로드</button>
+
+        <div id="file-list-container">
+          <h3>선택된 파일 목록:</h3>
+          <ul id="file-list">
+            <!-- 선택된 파일 목록이 여기에 추가됩니다 -->
+          </ul>
+        </div>
       </form>
+
+      <!-- 텍스트 입력 섹션 (여러 개 텍스트 문제 입력) -->
+      <h2>문제 텍스트 입력</h2>
+      <div id="text-inputs">
+        <div class="text-input-wrapper">
+          <textarea class="text-input" rows="6" placeholder="여기에 문제를 입력하세요..."></textarea>
+          <button type="button" class="remove-text" style="display:none;" onclick="removeTextInput(this)">삭제</button>
+        </div>
+      </div>
+      <button type="button" onclick="addTextInput()">텍스트 추가</button>
+      <button type="button" onclick="uploadText()">텍스트 업로드</button>
 
       <p id="upload-status"></p>
-
-      <!-- 텍스트 입력 섹션 -->
-      <h3>또는 문제 텍스트 입력</h3>
-      <form id="text-form">
-        <textarea id="text-input" name="text" rows="5" cols="50" placeholder="문제를 입력하세요..." required="required"></textarea>
-        <button type="button" onclick="uploadText()">텍스트 업로드</button>
-      </form>
 
       <!-- 프로그래스바 -->
       <div id="progress-container" style="display: none;">
@@ -38,9 +50,10 @@
         <progress id="progress-bar" max="100" value="0"></progress>
       </div>
 
-      <!-- 라벨링 결과 확인 -->
+      <!-- 업로드 후 결과 조회 -->
       <h2>2. 라벨링 결과 확인</h2>
-      <button id="show-result-btn" style="display: none;" onclick="fetchResult()">결과 확인</button>
+      <p id="uploaded-file-name" style="font-weight: bold; display: none;"></p>
+      <button id="show-result-btn" style="display: none;" onclick="fetchAllResults()">결과 확인</button>
       <div id="results"></div>
     </div>
 

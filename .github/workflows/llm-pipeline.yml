@@ -23,9 +23,9 @@ jobs:
       # 3. GitHub 인증 설정 (PAT을 사용하여 git 인증)
       - name: Set up Git authentication with PAT
         env:
-            GH_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
+            GH_TOKEN: ${{ secrets.GITACTION_TOKEN }}
         run: |
-          git config --global url."https://x-access-token:${{ secrets.ACTIONS_TOKEN }}@github.com".insteadOf "https://github.com"
+          git config --global url."https://x-access-token:${{ secrets.GITACTION_TOKEN }}@github.com".insteadOf "https://github.com"
 
       # 4. EC2에 코드 배포
       - name: Deploy to EC2

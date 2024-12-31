@@ -7,6 +7,7 @@ import tempfile
 from PIL import Image
 import io
 import cv2
+import numpy as np
 
 # 환경 변수 로드
 load_dotenv(override=True)

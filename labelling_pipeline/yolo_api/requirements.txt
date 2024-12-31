@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+boto3
+ultralytics
+python-dotenv
+Pillow
+opencv-python

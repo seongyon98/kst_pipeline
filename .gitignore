@@ -3,7 +3,6 @@
 .venv/
 *.conda
 .env
-*.txt
 *.png
 *.json
 __pycache__/

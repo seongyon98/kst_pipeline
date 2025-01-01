@@ -31,7 +31,7 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
-            cd /path/to/your/app
+            cd /labelling_pipeline/llm_api
             git pull origin main  # 최신 코드를 가져옵니다
             docker-compose down  # 기존 컨테이너 중지
             docker-compose up -d # 새 컨테이너 실행

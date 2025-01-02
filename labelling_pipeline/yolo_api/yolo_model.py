@@ -1,108 +1,149 @@
-from pathlib import Path
-import boto3
-from ultralytics import YOLO
-from dotenv import load_dotenv
 import os
-import tempfile
-from PIL import Image
-import io
 import cv2
 import numpy as np
+import boto3
+from craft_text_detector import Craft
+from ultralytics import YOLO
+from io import BytesIO
 
-# 환경 변수 로드
+import boto3
+import os
+from io import BytesIO
+from ultralytics import YOLO
+from craft_text_detector import Craft
+
+# -----------------------------------------------------------
+# S3에서 모델 파일을 다운로드하여 사용
+# -----------------------------------------------------------
+S3_BUCKET_NAME = "big9-project-02-model-bucket"
+YOLO_MODEL_PATH = "yolov8_text_nontext.pt"  # S3 경로
+LOCAL_YOLO_MODEL_PATH = "./models/yolov8_text_nontext.pt"  # 로컬 경로에 YOLO 모델 저장
+
+S3_IMAGE_BUCKET = "big9-project-02-question-bucket"
+S3_IMAGE_PATH = "image/P3_1_01_21114_49495.png"  # 이미지 S3 경로
+
+from dotenv import load_dotenv
+
 load_dotenv(override=True)
 
-# S3 설정
-s3_client = boto3.client("s3")
-MODEL_BUCKET_NAME = os.getenv("MODEL_BUCKET_NAME")
-YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH")
-IMAGE_BUCKET_NAME = os.getenv("IMAGE_BUCKET_NAME")
-IMAGE_PREFIX = os.getenv("IMAGE_PREFIX")  # 이미지 경로(prefix)
-LOCAL_YOLO_PATH = "/tmp/temp_yolo.pt"  # YOLO 모델 임시 저장 경로
+# S3 클라이언트 생성
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION"),
+)
+
+# CRAFT 모델 초기화
+craft = Craft(
+    output_dir="./Model/Yolov8/Result/processed",  # 상대 경로로 변경
+    crop_type="box",
+)
 
 
-# 1. YOLO 모델 로드
-def load_yolo_model_from_s3():
+def download_file_from_s3(bucket_name, file_key, local_path):
+    """
+    S3에서 파일을 다운로드하여 로컬에 저장
+    :param bucket_name: S3 버킷 이름
+    :param file_key: S3 경로
+    :param local_path: 로컬 경로
+    """
     try:
-        # 임시 디렉토리에 YOLO 모델 다운로드
-        with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as temp_file:
-            LOCAL_YOLO_PATH = temp_file.name
-
-        print(f"[INFO] Temporary file created at {LOCAL_YOLO_PATH}")
-
-        # S3에서 YOLO 모델 다운로드
-        s3_client.download_file(MODEL_BUCKET_NAME, YOLO_MODEL_PATH, LOCAL_YOLO_PATH)
-        print(f"[INFO] YOLO model downloaded to {LOCAL_YOLO_PATH}")
-
-        # YOLO 모델 로드
-        model = YOLO(LOCAL_YOLO_PATH)
-
-        # 임시 파일 삭제
-        os.remove(LOCAL_YOLO_PATH)
-        print(f"[INFO] Temporary file {LOCAL_YOLO_PATH} deleted")
-
-        return model
-
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)  # 디렉토리 생성
+        s3_client.download_file(bucket_name, file_key, local_path)
+        print(f"Downloaded: {file_key} to {local_path}")
     except Exception as e:
-        print(f"[ERROR] Failed to load YOLO model: {e}")
-        raise e
+        print(f"Error downloading {file_key}: {e}")
+        raise
 
 
-# YOLO 모델을 사용해 바운딩 박스를 추출하는 함수
-def upscale_image(image, scale=2):
-    height, width = image.shape[:2]
-    new_dim = (width * scale, height * scale)
-    upscaled_image = cv2.resize(image, new_dim, interpolation=cv2.INTER_CUBIC)
-    return upscaled_image
+def load_yolo_model():
+    """
+    YOLO 모델을 로컬에 저장 후 로드
+    """
+    print("Downloading YOLO model from S3...")
+    download_file_from_s3(S3_BUCKET_NAME, YOLO_MODEL_PATH, LOCAL_YOLO_MODEL_PATH)
+    print("Loading YOLO model...")
+    return YOLO(LOCAL_YOLO_MODEL_PATH)
 
 
-def enhance_contrast(image):
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    cl = clahe.apply(l)
-    enhanced_image = cv2.merge((cl, a, b))
-    final_image = cv2.cvtColor(enhanced_image, cv2.COLOR_LAB2BGR)
-    return final_image
+# YOLO 모델 로드
+yolo_model = load_yolo_model()
 
 
-def preprocess_image(image):
-    # 이미지 전처리 과정 (스케일 업, 대비 향상)
-    image = upscale_image(image, scale=2)
-    image = enhance_contrast(image)
-    return image
+def save_coordinates(coordinates, file_path):
+    """텍스트 좌표를 저장"""
+    with open(file_path, "w", encoding="utf-8") as f:
+        for pts in coordinates:
+            f.write(",".join(map(str, pts.flatten())) + "\n")
 
 
-def extract_bboxes(yolo_model, image):
+def save_failed_boxes(failed_boxes, file_path):
+    """CRAFT 실패 영역 정보 저장"""
+    with open(file_path, "w", encoding="utf-8") as f:
+        for box in failed_boxes:
+            f.write(
+                f"Class: {box['class']}, Confidence: {box['conf']:.2f}, BBox: {box['bbox']}\n"
+            )
+
+
+def process_image_with_craft(image_path):
+    """CRAFT로 텍스트 영역을 감지 후 (boxes, score_text 등) 리턴"""
     try:
-        # 이미지를 numpy array로 변환
-        open_cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        craft_result = craft.detect_text(image_path)
+        return craft_result
+    except Exception as e:
+        print(f"CRAFT Error: {e}")
+        return None
 
-        # 이미지 전처리
-        preprocessed_image = preprocess_image(open_cv_image)
 
-        # YOLO 모델 추론
-        results = yolo_model(preprocessed_image, conf=0.3, iou=0.4, verbose=False)
+def process_image_with_yolo_and_craft(image, target_classes=None, conf_thresh=0.5):
+    """YOLO로 텍스트 감지 후 CRAFT 수행"""
+    if target_classes is None:
+        target_classes = ["text"]  # 본인의 YOLO 클래스명
 
-        bboxes = []
-        for result in results[0].boxes.data:
-            x1, y1, x2, y2, conf, cls = result
-            if int(cls) == 0:  # 클래스가 0인 경우만 처리
-                x_center = (x1 + x2) / 2
-                y_center = (y1 + y2) / 2
-                width = x2 - x1
-                height = y2 - y1
-                bboxes.append(
-                    [0, x_center.item(), y_center.item(), width.item(), height.item()]
+    height, width = image.shape[:2]
+    original_image = image.copy()
+
+    results = yolo_model.predict(image, conf=conf_thresh)
+    if len(results) == 0 or len(results[0].boxes) == 0:
+        print(f"No objects detected by YOLO. Skipping...")
+        return [], []
+
+    boxes = results[0].boxes
+    all_text_boxes = []
+    failed_boxes_info = []
+
+    for box in boxes:
+        cls_id = int(box.cls[0].item())  # 클래스 인덱스
+        cls_conf = float(box.conf[0].item())  # confidence
+        cls_name = results[0].names[cls_id]
+
+        if cls_name in target_classes and cls_conf >= conf_thresh:
+            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(width - 1, x2), min(height - 1, y2)
+
+            # YOLO로 잡은 영역 Crop (원본 이미지에서 크롭)
+            cropped_region = image[y1:y2, x1:x2]
+
+            # CRAFT 수행
+            try:
+                craft_result = craft.detect_text(cropped_region)
+                text_bboxes = [
+                    np.array(pt).astype(np.int32)
+                    for pt in craft_result["boxes"]
+                    if pt is not None and len(pt) > 0
+                ]
+
+                for pts in text_bboxes:
+                    pts[:, 0] += x1
+                    pts[:, 1] += y1
+                    all_text_boxes.append(pts)
+
+            except Exception:
+                failed_boxes_info.append(
+                    {"class": cls_name, "conf": cls_conf, "bbox": (x1, y1, x2, y2)}
                 )
 
-        # 바운딩 박스가 없는 경우 기본값 반환 (just 연결 테스트용!)
-        if not bboxes:
-            print("[WARNING] No bounding boxes found. Returning default bounding box.")
-            bboxes.append([0, 0, 0, 0, 0])
-
-        return bboxes
-
-    except Exception as e:
-        print(f"[ERROR] Failed to extract bounding boxes: {e}")
-        return [[0, 0, 0, 0, 0]]  # 오류 발생 시 기본값 반환 (just 연결 테스트용!)
+    return all_text_boxes, failed_boxes_info

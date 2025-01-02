@@ -1,7 +1,7 @@
 import psycopg2
 from datetime import datetime
 import boto3
-from llm.problem_processor import process_math_problem
+from problem_processor import process_math_problem
 from dotenv import load_dotenv
 import os
 

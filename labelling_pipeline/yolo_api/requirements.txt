@@ -5,3 +5,4 @@ ultralytics
 python-dotenv
 Pillow
 opencv-python
+craft-text-detector

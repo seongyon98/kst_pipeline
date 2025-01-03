@@ -2,7 +2,9 @@ name: MLOpsCI
 
 on:
   push:
-    branches: [ "main" ] # main 브랜치에 푸시될 때 실행
+    branches:
+      - main
+      - CICD/mlop
 
 jobs:
   build-and-push:

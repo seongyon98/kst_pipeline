@@ -2,7 +2,7 @@ name: MLOpsCI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" ] # main 브랜치에 푸시될 때 실행
 
 jobs:
   build-and-push:
@@ -22,33 +22,25 @@ jobs:
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region ap-northeast-2 \
-            | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com
+          | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
 
-      # (1) 전처리_yolo
-      - name: Build & push Preprocessing YOLO
+      # YOLO Training 이미지
+      - name: Build & push YOLO Training
         run: |
-          docker build -t my-mlops-preprocessing-yolo:latest preprocessing_yolo/
-          docker tag my-mlops-preprocessing-yolo:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-yolo:latest
-          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-yolo:latest
+          docker build -t yolo-training-latest ./yolo
+          docker tag yolo-training-latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/yolo-training-latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/yolo-training-latest
 
-      # (2) 전처리_ocr
-      - name: Build & push Preprocessing OCR
+      # MLflow 이미지
+      - name: Build & push MLflow
         run: |
-          docker build -t my-mlops-preprocessing-ocr:latest preprocessing_ocr/
-          docker tag my-mlops-preprocessing-ocr:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-ocr:latest
-          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-ocr:latest
+          docker build -t mlflow-latest ./mlflow
+          docker tag mlflow-latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/mlflow-latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/mlflow-latest
 
-      # (3) YOLO 학습
-      - name: Build & push YOLO
+      # Preprocess 이미지
+      - name: Build & push Preprocess
         run: |
-          docker build -t my-mlops-yolo:latest yolo/
-          docker tag my-mlops-yolo:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-yolo:latest
-          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-yolo:latest
-
-      # (4) OCR 학습
-      - name: Build & push OCR
-        run: |
-          docker build -t my-mlops-ocr:latest ocr/
-          docker tag my-mlops-ocr:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-ocr:latest
-          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-ocr:latest
-
+          docker build -t preprocess ./preprocessing_yolo
+          docker tag preprocess ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/preprocess
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/preprocess

@@ -1,0 +1,4 @@
+ultralytics
+boto3
+pyyaml
+mlflow

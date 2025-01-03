@@ -1,0 +1,5 @@
+.env
+*env
+
+preprocessing_ocr/
+ocr/

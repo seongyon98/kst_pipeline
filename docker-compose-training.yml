@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  preprocessing:
+    build:
+      context: ./preprocessing_yolo
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - /tmp/yolo:/tmp/yolo
+    container_name: yolo_preprocessing
+    networks:
+      - mlops-network
+
+  training:
+    build:
+      context: ./yolo
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      MLFLOW_TRACKING_URI: http://mlflow-mlflow:5000  # MLflow URL
+    volumes:
+      - /tmp/yolo:/tmp/yolo
+    networks:
+      - mlops-network
+
+networks:
+  mlops-network:
+    external: true

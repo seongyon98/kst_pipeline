@@ -1,0 +1,221 @@
+{
+    "events": [
+        {
+            "timestamp": 1735608471682,
+            "message": "Preparing YOLO dataset...",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "Traceback (most recent call last):",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "  File \"/app/train_yolo.py\", line 124, in <module>",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "    prepare_dataset()",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "  File \"/app/train_yolo.py\", line 51, in prepare_dataset",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "    download_s3_directory(BUCKET_NAME, f\"{PROCESSED_IMAGES_DIR}train/\", train_images_dir)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "  File \"/app/train_yolo.py\", line 24, in download_s3_directory",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471686,
+            "message": "    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/client.py\", line 569, in _api_call",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "    return self._make_api_call(operation_name, kwargs)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/client.py\", line 1005, in _make_api_call",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "    http, parsed_response = self._make_request(",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "                            ^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471687,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/client.py\", line 1029, in _make_request",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "    return self._endpoint.make_request(operation_model, request_dict)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/endpoint.py\", line 119, in make_request",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "    return self._send_request(request_dict, operation_model)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/endpoint.py\", line 196, in _send_request",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "    request = self.create_request(request_dict, operation_model)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/endpoint.py\", line 132, in create_request",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "    self._event_emitter.emit(",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471688,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/hooks.py\", line 412, in emit",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "    return self._emitter.emit(aliased_event_name, **kwargs)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/hooks.py\", line 256, in emit",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "    return self._emit(event_name, kwargs)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/hooks.py\", line 239, in _emit",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "    response = handler(**kwargs)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "               ^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/signers.py\", line 106, in handler",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "    return self.sign(operation_name, request)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471689,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/signers.py\", line 198, in sign",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471690,
+            "message": "    auth.add_auth(request)",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471690,
+            "message": "  File \"/opt/conda/lib/python3.11/site-packages/botocore/auth.py\", line 423, in add_auth",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471690,
+            "message": "    raise NoCredentialsError()",
+            "ingestionTime": 1735608475050
+        },
+        {
+            "timestamp": 1735608471690,
+            "message": "botocore.exceptions.NoCredentialsError: Unable to locate credentials",
+            "ingestionTime": 1735608475050
+        }
+    ],
+    "nextForwardToken": "f/38705362291569840466442376448967646782988344056181030954/s",
+    "nextBackwardToken": "b/38705362291391434504854131463835361036807157164133187584/s"
+}

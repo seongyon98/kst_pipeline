@@ -1,0 +1,54 @@
+name: MLOpsCI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ap-northeast-2 \
+            | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com
+
+      # (1) 전처리_yolo
+      - name: Build & push Preprocessing YOLO
+        run: |
+          docker build -t my-mlops-preprocessing-yolo:latest preprocessing_yolo/
+          docker tag my-mlops-preprocessing-yolo:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-yolo:latest
+          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-yolo:latest
+
+      # (2) 전처리_ocr
+      - name: Build & push Preprocessing OCR
+        run: |
+          docker build -t my-mlops-preprocessing-ocr:latest preprocessing_ocr/
+          docker tag my-mlops-preprocessing-ocr:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-ocr:latest
+          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-preprocessing-ocr:latest
+
+      # (3) YOLO 학습
+      - name: Build & push YOLO
+        run: |
+          docker build -t my-mlops-yolo:latest yolo/
+          docker tag my-mlops-yolo:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-yolo:latest
+          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-yolo:latest
+
+      # (4) OCR 학습
+      - name: Build & push OCR
+        run: |
+          docker build -t my-mlops-ocr:latest ocr/
+          docker tag my-mlops-ocr:latest <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-ocr:latest
+          docker push <ACCOUNT_ID>.dkr.ecr.ap-northeast-2.amazonaws.com/my-mlops-ocr:latest
+

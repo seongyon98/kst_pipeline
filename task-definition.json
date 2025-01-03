@@ -1,0 +1,113 @@
+{
+  "family": "mlops-task-definition",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "preprocess",
+      "image": "339712929315.dkr.ecr.ap-northeast-2.amazonaws.com/mlops-project:preprocess",
+      "cpu": 256,
+      "memory": 512,
+      "portMappings": [],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mlops-task-definition",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "preprocess"
+        }
+      }
+    },
+    {
+      "name": "train",
+      "image": "339712929315.dkr.ecr.ap-northeast-2.amazonaws.com/mlops-project:train",
+      "cpu": 1024,
+      "memory": 2048,
+      "portMappings": [],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mlops-task-definition",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "train"
+        }
+      }
+    },
+    {
+      "name": "mlflow-server",
+      "image": "339712929315.dkr.ecr.ap-northeast-2.amazonaws.com/mlops-project:mlflow",
+      "cpu": 512,
+      "memory": 1024,
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "hostPort": 5000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "BACKEND_STORE_URI",
+          "value": "postgresql://mlflow:mlflow_password@postgres.local:5432/mlflow_db"
+        },
+        {
+          "name": "ARTIFACT_STORE",
+          "value": "/mlflow/artifact_store"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mlops-task-definition",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "mlflow-server"
+        }
+      }
+    },
+    {
+      "name": "postgres",
+      "image": "postgres:13",
+      "cpu": 256,
+      "memory": 512,
+      "portMappings": [
+        {
+          "containerPort": 5432,
+          "hostPort": 5432,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "POSTGRES_USER",
+          "value": "mlflow"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "mlflow_password"
+        },
+        {
+          "name": "POSTGRES_DB",
+          "value": "mlflow_db"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mlops-task-definition",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "postgres"
+        }
+      }
+    }
+  ],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::339712929315:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::339712929315:role/ecsTaskExecutionRole",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ]
+}

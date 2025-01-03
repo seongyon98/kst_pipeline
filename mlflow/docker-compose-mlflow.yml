@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow_password
+      POSTGRES_DB: mlflow_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - mlops-network
+
+  mlflow:
+    build:
+      context: ./mlflow
+    container_name: mlflow-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      BACKEND_STORE_URI: postgresql://mlflow:mlflow_password@postgres:5432/mlflow_db
+      ARTIFACT_STORE: /mlflow/artifact_store
+    volumes:
+      - ./mlflow/config/artifact_store:/mlflow/artifact_store
+    depends_on:
+      - postgres
+    networks:
+      - mlops-network
+
+networks:
+  mlops-network:
+    external: true
+
+volumes:
+  postgres-data:

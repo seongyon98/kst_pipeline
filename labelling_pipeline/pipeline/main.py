@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any
 import httpx  # httpx를 사용하여 비동기 HTTP 요청 처리
-from utils.http_client import call_yolo_api, call_ocr_api, call_llm_api
+from http_client import call_yolo_api, call_ocr_api, call_llm_api
 from llm_api.llm_main import process_multiple_problems
 
 app = FastAPI()

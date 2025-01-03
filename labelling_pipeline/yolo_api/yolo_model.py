@@ -5,70 +5,14 @@ import boto3
 from craft_text_detector import Craft
 from ultralytics import YOLO
 from io import BytesIO
+import asyncio
 
-import boto3
-import os
-from io import BytesIO
-from ultralytics import YOLO
-from craft_text_detector import Craft
-
-# -----------------------------------------------------------
-# S3에서 모델 파일을 다운로드하여 사용
-# -----------------------------------------------------------
-S3_BUCKET_NAME = "big9-project-02-model-bucket"
-YOLO_MODEL_PATH = "yolov8_text_nontext.pt"  # S3 경로
-LOCAL_YOLO_MODEL_PATH = "./models/yolov8_text_nontext.pt"  # 로컬 경로에 YOLO 모델 저장
-
-S3_IMAGE_BUCKET = "big9-project-02-question-bucket"
-S3_IMAGE_PATH = "image/P3_1_01_21114_49495.png"  # 이미지 S3 경로
-
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
-# S3 클라이언트 생성
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    region_name=os.getenv("AWS_REGION"),
-)
 
 # CRAFT 모델 초기화
 craft = Craft(
     output_dir="./Model/Yolov8/Result/processed",  # 상대 경로로 변경
     crop_type="box",
 )
-
-
-def download_file_from_s3(bucket_name, file_key, local_path):
-    """
-    S3에서 파일을 다운로드하여 로컬에 저장
-    :param bucket_name: S3 버킷 이름
-    :param file_key: S3 경로
-    :param local_path: 로컬 경로
-    """
-    try:
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)  # 디렉토리 생성
-        s3_client.download_file(bucket_name, file_key, local_path)
-        print(f"Downloaded: {file_key} to {local_path}")
-    except Exception as e:
-        print(f"Error downloading {file_key}: {e}")
-        raise
-
-
-def load_yolo_model():
-    """
-    YOLO 모델을 로컬에 저장 후 로드
-    """
-    print("Downloading YOLO model from S3...")
-    download_file_from_s3(S3_BUCKET_NAME, YOLO_MODEL_PATH, LOCAL_YOLO_MODEL_PATH)
-    print("Loading YOLO model...")
-    return YOLO(LOCAL_YOLO_MODEL_PATH)
-
-
-# YOLO 모델 로드
-yolo_model = load_yolo_model()
 
 
 def save_coordinates(coordinates, file_path):

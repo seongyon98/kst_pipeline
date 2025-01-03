@@ -3,3 +3,4 @@ uvicorn
 boto3
 python-dotenv
 transformers
+Pillow

@@ -1,0 +1,6 @@
+names:
+- text
+- non-text
+path: C:/Users/user/Desktop/aws_s3_Data
+train: images
+val: images

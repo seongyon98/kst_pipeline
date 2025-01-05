@@ -11,20 +11,23 @@ import cv2
 from ultralytics import YOLO
 from dotenv import load_dotenv
 from yolo_model import (
+    convert_numpy_to_python,
+    download_image_from_s3,
+    flatten,
     process_image_with_yolo_and_craft,
     process_image_with_craft,
     save_coordinates,
     save_failed_boxes,
 )
-from itertools import chain
+
 
 load_dotenv(override=True)
 
-S3_BUCKET_NAME = "big9-project-02-model-bucket"
-YOLO_MODEL_PATH = "yolov8_text_nontext.pt"  # S3 경로
+S3_BUCKET_NAME = os.getenv("MODEL_BUCKET_NAME")
+YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH")  # S3 경로
 LOCAL_YOLO_MODEL_PATH = "./models/yolov8_text_nontext.pt"  # 로컬 경로에 YOLO 모델 저장
 
-S3_IMAGE_BUCKET = "big9-project-02-question-bucket"
+S3_IMAGE_BUCKET = os.getenv("IMAGE_BUCKET_NAME")
 S3_IMAGE_PATH = "image/P3_1_01_21114_49495.png"  # 이미지 S3 경로
 
 # S3 클라이언트 생성
@@ -34,38 +37,6 @@ s3_client = boto3.client(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     region_name=os.getenv("AWS_REGION"),
 )
-
-
-# S3에서 이미지를 다운로드하는 함수
-def download_image_from_s3(bucket_name, file_key):
-    file_obj = BytesIO()
-    s3_client.download_fileobj(bucket_name, file_key, file_obj)
-    file_obj.seek(0)
-    img_array = np.asarray(bytearray(file_obj.read()), dtype=np.uint8)
-    image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-    return image
-
-
-# numpy 데이터를 기본 Python 타입으로 변환하는 함수
-def convert_numpy_to_python(data):
-    """numpy 배열이나 numpy 타입을 Python 기본 타입으로 변환"""
-    if isinstance(data, np.ndarray):
-        return data.tolist()  # numpy 배열을 리스트로 변환
-    elif isinstance(data, np.generic):  # numpy 데이터 타입인 경우
-        return data.item()  # Python 기본 데이터 타입으로 변환
-    return data
-
-
-# 리스트 평탄화 함수
-def flatten(data):
-    """주어진 data가 numpy 배열일 경우 flatten을 호출하고, list일 경우 list comprehension을 사용해 평평하게 만듦"""
-    if isinstance(data, np.ndarray):  # numpy 배열인 경우
-        return data.flatten()
-    elif isinstance(data, list):  # list인 경우
-        return list(
-            chain.from_iterable(data)
-        )  # itertools.chain을 사용하여 평평하게 만들기
-    return data
 
 
 @asynccontextmanager
@@ -118,9 +89,7 @@ class CoordinatesResponse(BaseModel):
 async def extract_bboxes_from_image():
     try:
         # S3에서 이미지 다운로드
-        image = download_image_from_s3(
-            "big9-project-02-question-bucket", "image/P3_1_01_21114_49495.png"
-        )
+        image = download_image_from_s3(S3_IMAGE_BUCKET, S3_IMAGE_PATH)
         if image is None:
             return {"error": "S3에서 이미지 로드 실패"}
 
@@ -137,7 +106,9 @@ async def extract_bboxes_from_image():
             coordinates = [convert_numpy_to_python(coord) for coord in coordinates]
             save_coordinates(coordinates, "coordinates.txt")
         else:
-            all_text_boxes, failed_boxes = process_image_with_yolo_and_craft(image)
+            all_text_boxes, failed_boxes = process_image_with_yolo_and_craft(
+                yolo_model, image
+            )
             # numpy 데이터를 Python 기본 타입으로 변환
             all_text_boxes = [
                 convert_numpy_to_python(coord) for coord in all_text_boxes

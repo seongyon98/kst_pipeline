@@ -5,4 +5,6 @@ ultralytics
 python-dotenv
 Pillow
 opencv-python
-craft-text-detector
+craft_text_detector
+torchvision==0.13.1
+numpy<2

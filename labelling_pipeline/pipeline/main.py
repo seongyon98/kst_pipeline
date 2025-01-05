@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from typing import Dict, Any
 import httpx  # httpx를 사용하여 비동기 HTTP 요청 처리
 from http_client import call_yolo_api, call_ocr_api, call_llm_api
-from llm_api.llm_main import process_multiple_problems
 
 app = FastAPI()
 
@@ -53,16 +52,7 @@ async def process_image(request: ImageRequest):
                 status_code=400, detail="LLM에서 카테고리 및 라벨 추출 실패"
             )
 
-        # 4. 결과를 PostgreSQL에 저장
-        process_multiple_problems(
-            request.file_name,
-            {
-                "question_text": question_text,
-                "category_label": category_label,
-                "leaf_label": leaf_label,
-            },
-        )
-
+        # 결과를 바로 반환 (DB 저장은 이미 LLM API에서 처리됨)
         return {
             "file_name": request.file_name,
             "category_label": category_label,
@@ -70,34 +60,11 @@ async def process_image(request: ImageRequest):
             "status": "success",
         }
 
-    except httpx.RequestError as e:  # httpx의 예외로 수정
-        # 요청 오류 처리: 네트워크 문제, API 연결 실패 등
+    except httpx.RequestError as e:
         raise HTTPException(status_code=502, detail=f"요청 오류: {str(e)}")
 
     except HTTPException as e:
-        # 이미 처리된 HTTP 오류 예외
         raise e
 
     except Exception as e:
-        # 다른 일반적인 오류 처리
-        raise HTTPException(status_code=500, detail=f"내부 서버 오류: {str(e)}")
-
-
-# 여러 문제를 처리하는 엔드포인트 (예시)
-@app.post("/process-multiple/")
-async def process_multiple(request: Dict[str, Any]):
-    try:
-        file_name = request.get("file_name")
-        processed_data = request.get("processed_data")
-
-        if not file_name or not processed_data:
-            raise HTTPException(status_code=400, detail="필수 데이터 누락")
-
-        # 여러 문제 처리
-        process_multiple_problems(file_name, processed_data)
-
-        return {"status": "success", "message": "문제 처리 완료"}
-
-    except Exception as e:
-        # 예외 처리: 세부적인 오류 메시지를 반환
         raise HTTPException(status_code=500, detail=f"내부 서버 오류: {str(e)}")

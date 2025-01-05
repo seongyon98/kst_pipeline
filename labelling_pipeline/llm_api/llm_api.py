@@ -27,8 +27,3 @@ async def process_problem(problem: ProblemData):
         return {"message": "문제 처리가 완료되었습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"문제 처리 실패: {e}")
-
-
-# 서버 시작을 위한 명령
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8003)

@@ -6,7 +6,7 @@ import os
 import json
 
 # 환경 변수 로드
-load_dotenv(dotenv_path="/pipeline/.env", override=True)
+load_dotenv(dotenv_path="../pipeline/.env", override=True)
 
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -25,10 +25,10 @@ DB_CONFIG = {
 
 # 로드맵 파일 경로 설정
 ROADMAP_FILES = {
-    "수와 연산": r"D:\programming\python\chunjae\finalproject\kst_pipeline\Preprocessing\roadmap\01_num_cal.json",
-    "변화와 관계": r"D:\programming\python\chunjae\finalproject\kst_pipeline\Preprocessing\roadmap\02_change_of_relationship.json",
-    "도형과 측정": r"D:\programming\python\chunjae\finalproject\kst_pipeline\Preprocessing\roadmap\03_shape_meas.json",
-    "자료와 가능성": r"D:\programming\python\chunjae\finalproject\kst_pipeline\Preprocessing\roadmap\04_data_and_possibility.json",
+    "수와 연산": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/01_num_cal.json",
+    "변화와 관계": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/02_change_of_relationship.json",
+    "도형과 측정": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/03_shape_meas.json",
+    "자료와 가능성": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/04_data_and_possibility.json",
 }
 
 
@@ -83,11 +83,11 @@ def save_to_db(file_name, category_label, leaf_label):
 
 
 def process_multiple_problems(file_name, processed_data):
-    """문제 처리 및 저장"""
-    if not processed_data or "question_text" not in processed_data:
+    """문제 처리 및 결과 출력"""
+    if not processed_data or "text" not in processed_data:
         raise ValueError("전처리된 데이터에 문제 텍스트가 없습니다.")
 
-    question_text = processed_data["question_text"]
+    question_text = processed_data["text"]
 
     if not question_text:
         raise ValueError("문제 텍스트가 비어있습니다.")
@@ -105,10 +105,14 @@ def process_multiple_problems(file_name, processed_data):
             model="gpt-4o",  # 기본 모델을 "gpt-4o"로 설정
         )
 
-        print(f"[DEBUG] 처리 결과: 대분류: {category}, 최하위 분류: {leaf_category}")
+        # 처리 결과 출력
+        print(f"[DEBUG] 처리 결과:")
+        print(f"  파일 이름: {file_name}")
+        print(f"  대분류: {category}")
+        print(f"  최하위 분류: {leaf_category}")
 
-        # PostgreSQL에 저장
-        save_to_db(file_name, category, leaf_category)
+        # DB 저장 대신 출력으로 대체
+        # save_to_db(file_name, category, leaf_category)
 
     except Exception as e:
         print(f"[ERROR] 문제 처리 실패: {e}")

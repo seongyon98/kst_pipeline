@@ -4,6 +4,7 @@ from PIL import Image
 from transformers import VisionEncoderDecoderModel, AutoTokenizer, AutoImageProcessor
 from typing import List
 
+
 def ensure_preprocessor_config_if_missing(model_dir: str):
     """
     모델 디렉토리에 'preprocessor_config.json'이 없을 경우 기본 설정 생성
@@ -54,11 +55,7 @@ def load_ocr_model(model_path: str):
 
 
 def perform_ocr_on_cropped_images(
-    image_paths: List[str],
-    model,
-    tokenizer,
-    image_processor,
-    image_size: int = 384
+    image_paths: List[str], model, tokenizer, image_processor, image_size: int = 384
 ):
     """
     크롭된 이미지 리스트를 받아 OCR을 수행한 뒤, 각 이미지를 인식해 얻은 텍스트를 리스트로 반환한다.
@@ -75,7 +72,9 @@ def perform_ocr_on_cropped_images(
 
             # OCR 모델 추론
             output_ids = model.generate(pixel_values, max_length=512)
-            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
+                0
+            ].strip()
 
             # 크롭된 이미지 각각에서 추출된 텍스트를 리스트에 추가
             all_texts.append(decoded_text)

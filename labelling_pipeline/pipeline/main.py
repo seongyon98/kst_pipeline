@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any
 import httpx  # httpx를 사용하여 비동기 HTTP 요청 처리
-from http_client import call_yolo_api, call_ocr_api, call_llm_api
+from http_client import call_ocr_api, call_llm_api
 
 app = FastAPI()
 
@@ -18,11 +18,11 @@ class ImageRequest(BaseModel):
 async def process_image(request: ImageRequest):
     try:
         # 1. YOLO API 호출: 이미지에서 객체 인식
-        yolo_result = await call_yolo_api(request.image_path)
-        if "error" in yolo_result:
-            raise HTTPException(
-                status_code=400, detail=f"YOLO API 호출 실패: {yolo_result['error']}"
-            )
+        # yolo_result = await call_yolo_api(request.image_path)
+        # if "error" in yolo_result:
+        #     raise HTTPException(
+        #         status_code=400, detail=f"YOLO API 호출 실패: {yolo_result['error']}"
+        #     )
 
         # 2. OCR API 호출: 이미지에서 텍스트 추출
         ocr_result = await call_ocr_api(request.image_path)

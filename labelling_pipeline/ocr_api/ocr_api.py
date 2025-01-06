@@ -5,12 +5,13 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from typing import List
 from ocr_model import load_ocr_model, perform_ocr_on_cropped_images
-from yolo_api.src.config import CROPPED_IMAGES_DIR  # 크롭된 이미지 폴더 경로
+
+# from yolo_api.src.config import CROPPED_IMAGES_DIR  # 크롭된 이미지 폴더 경로
 
 app = FastAPI()
 
 # OCR 모델 관련 설정
-LOCAL_MODEL_PATH = "./final_model_1"
+LOCAL_MODEL_PATH = "D:/programming/python/chunjae/finalproject/kst_pipeline/labelling_pipeline/ocr_api/models/final_model_1"
 
 # 결과 저장 디렉토리
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
@@ -23,13 +24,9 @@ if not ocr_model or not ocr_tokenizer or not ocr_processor:
         f"[ERROR] OCR 모델 로드에 실패했습니다. 경로를 확인하세요: {LOCAL_MODEL_PATH}"
     )
 
-# # 1. S3에서 OCR 모델 로드
-# ocr_model, ocr_tokenizer, ocr_processor = load_ocr_model_from_s3(MODEL_BUCKET, OCR_S3_KEY)
-# if not ocr_model or not ocr_tokenizer or not ocr_processor:
-#     raise RuntimeError("[ERROR] OCR 모델 로드에 실패했습니다.")
+CROPPED_IMAGES_DIR = "D:/programming/python/chunjae/finalproject/kst_pipeline/labelling_pipeline/ocr_api/test_img"
 
 
-# 2. FastAPI 엔드포인트 정의
 @app.post("/extract_text/")
 async def extract_text_from_folders():
     """

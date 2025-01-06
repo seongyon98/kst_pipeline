@@ -10,9 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 앱 소스 코드 복사
-COPY download_img.py .
 COPY http_client.py .
-COPY save_json.py .
 COPY main.py .
 
 

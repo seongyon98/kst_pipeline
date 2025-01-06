@@ -99,7 +99,7 @@ def process_multiple_problems(file_name, processed_data):
         category_map = {category: load_roadmap(category) for category in ROADMAP_FILES}
 
         # 문제 처리
-        category, leaf_category, _, _ = process_math_problem(
+        category, leaf_category, category_time, leaf_time = process_math_problem(
             problem_text=question_text,
             category_map=category_map,
             model="gpt-4o",  # 기본 모델을 "gpt-4o"로 설정
@@ -110,6 +110,10 @@ def process_multiple_problems(file_name, processed_data):
         print(f"  파일 이름: {file_name}")
         print(f"  대분류: {category}")
         print(f"  최하위 분류: {leaf_category}")
+        print(f"  대분류 추출 시간: {category_time}")
+        print(f"  최하위 분류 추출 시간: {leaf_time}")
+
+        return file_name, category, leaf_category, category_time, leaf_time
 
         # DB 저장 대신 출력으로 대체
         # save_to_db(file_name, category, leaf_category)

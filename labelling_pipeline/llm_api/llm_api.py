@@ -23,7 +23,18 @@ async def process_problem(problem: ProblemData):
     """
     try:
         # LLM을 통해 문제 처리 및 라벨링
-        process_multiple_problems(problem.file_name, problem.processed_data)
-        return {"message": "문제 처리가 완료되었습니다."}
+        file_name, category, leaf_category, category_time, leaf_time = (
+            process_multiple_problems(problem.file_name, problem.processed_data)
+        )
+
+        # 처리 결과 반환
+        return {
+            "file_name": file_name,
+            "category": category,
+            "leaf_category": leaf_category,
+            "category_time": category_time,
+            "leaf_time": leaf_time,
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"문제 처리 실패: {e}")

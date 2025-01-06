@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for LLM API
+name: CI/CD Pipeline for labelling_pipeline
 
 on:
   push:
@@ -27,8 +27,15 @@ jobs:
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
-            cd /home/ubuntu/your-app-folder  # 정확한 디렉토리 경로
+            cd /home/ubuntu/labelling_pipeline
             git pull origin main
+            # Docker 이미지 빌드 (필요한 경우)
+            docker-compose build
             docker-compose down
             docker-compose up -d
           EOF
+
+      # 4. (선택 사항) EC2 서버 로그 출력 (디버깅 용도)
+      - name: Fetch logs from EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} "docker-compose logs -f"

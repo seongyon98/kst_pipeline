@@ -1,21 +1,4 @@
-# src/config.py
-import os
-from dotenv import load_dotenv
-import logging
+# ocr이 필요한 크롭 이미지 경로 빼고 다 삭제함 -ocr 쥔장-
 
-# 환경 변수 로드
-load_dotenv(dotenv_path="/pipeline/.env", override=True)
+CROPPED_IMAGES_DIR = "C:/Users/user/Desktop/final_project/github/labelling_pipeline/yolo_api/src/cropped_images"
 
-# S3 설정
-S3_BUCKET_NAME = os.getenv("MODEL_BUCKET_NAME")
-YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH")  # S3 경로
-LOCAL_YOLO_MODEL_PATH = "./models/yolov8_text_nontext.pt"  # 로컬 경로에 YOLO 모델 저장
-
-# 디렉토리 경로 설정
-OUTPUT_DIR = "./models/Yolov8/Result/processed"
-CROPPED_IMAGES_DIR = "./cropped_images/"
-DOWNLOADS_DIR = "./downloads/"
-
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)

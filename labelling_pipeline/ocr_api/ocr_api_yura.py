@@ -3,8 +3,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from typing import List
 from ocr_model import (
-    download_s3_directory,
-    load_ocr_model,
+    load_ocr_model_from_s3,  # S3에서 바로 로드
     perform_ocr_on_cropped_images,
 )
 import os
@@ -14,22 +13,14 @@ app = FastAPI()
 # OCR 모델 관련 설정
 MODEL_BUCKET = os.getenv("MODEL_BUCKET")
 OCR_S3_KEY = "ocr/final_model/final_model_1/"
-MODEL_DIR = "/tmp/model"
-OCR_LOCAL_PATH = os.path.join(MODEL_DIR, "final_model_1")
 CROPPED_IMAGES_PATH = "/tmp/cropped_images"
 
-# 1. S3에서 OCR 모델 다운로드
-if not os.path.exists(OCR_LOCAL_PATH):
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    download_s3_directory(MODEL_BUCKET, OCR_S3_KEY, OCR_LOCAL_PATH)
-    print(f"[INFO] OCR model downloaded to: {OCR_LOCAL_PATH}")
-
-# 2. OCR 모델 로드
-ocr_model, ocr_tokenizer, ocr_processor = load_ocr_model(OCR_LOCAL_PATH)
+# 1. S3에서 OCR 모델 로드
+ocr_model, ocr_tokenizer, ocr_processor = load_ocr_model_from_s3(MODEL_BUCKET, OCR_S3_KEY)
 if not ocr_model or not ocr_tokenizer or not ocr_processor:
     raise RuntimeError("[ERROR] OCR 모델 로드에 실패했습니다.")
 
-# 3. FastAPI 엔드포인트 정의
+# 2. FastAPI 엔드포인트 정의
 @app.post("/extract_text/")
 async def extract_text_from_images(files: List[UploadFile] = File(...)):
     try:

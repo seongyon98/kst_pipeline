@@ -1,9 +1,9 @@
-import os
 import boto3
 from PIL import Image
 from transformers import VisionEncoderDecoderModel, AutoTokenizer, AutoImageProcessor
 from typing import List
 from dotenv import load_dotenv
+import os
 
 # 환경 변수 로드
 load_dotenv(dotenv_path='/pipeline/.env', override=True)
@@ -15,11 +15,8 @@ AWS_REGION = os.getenv("AWS_REGION")
 MODEL_BUCKET = os.getenv("MODEL_BUCKET")
 OCR_S3_KEY = "ocr/final_model/final_model_1/" 
 
-# 로컬 OCR 모델 및 이미지 디렉토리
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "model")
-OCR_LOCAL_PATH = os.path.join(MODEL_DIR, "final_model_1")
-CROPPED_IMAGES_PATH = os.path.join(BASE_DIR, "cropped_images")  # 크롭된 이미지 폴더 경로 변경
+# 크롭된 이미지 폴더 경로
+CROPPED_IMAGES_PATH = "/tmp/cropped_images"  # 임시 저장소
 
 # S3 클라이언트 초기화
 s3_client = boto3.client(
@@ -30,53 +27,26 @@ s3_client = boto3.client(
 )
 
 # ---------------------------------------------------------------------
-# 1. OCR 모델 S3 -> 로컬 다운로드
+# 1. OCR 모델 S3에서 바로 로드
 # ---------------------------------------------------------------------
-def download_s3_directory(bucket, prefix, local_dir):
-    paginator = s3_client.get_paginator("list_objects_v2")
-    print(f"[INFO] Downloading OCR model directory from s3://{bucket}/{prefix} ...")
-
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-        contents = page.get("Contents", [])
-        for obj in contents:
-            key = obj["Key"]
-            if key.endswith("/"):  # 폴더 Key 는 제외
-                continue
-
-            relative_path = key[len(prefix):]  # prefix 이후의 경로만 추출
-            local_file_path = os.path.join(local_dir, relative_path)
-            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)  # "model" 폴더가 없으면 만들기
-
-            if os.path.exists(local_file_path):
-                print(f"[INFO] Local file already exists: {local_file_path}. Skipping.")
-                continue
-
-            print(f"[INFO] Downloading s3://{bucket}/{key} -> {local_file_path}")
-            s3_client.download_file(bucket, key, local_file_path)
-
-# OCR 모델 디렉토리 확인 및 다운로드
-if os.path.exists(OCR_LOCAL_PATH):
-    print(f"[INFO] OCR model directory already exists: {OCR_LOCAL_PATH}. Skipping download.")
-else:
-    download_s3_directory(MODEL_BUCKET, OCR_S3_KEY, OCR_LOCAL_PATH)
-    print(f"[INFO] OCR model directory downloaded to: {OCR_LOCAL_PATH}")
-
-# ---------------------------------------------------------------------
-# 2. OCR 모델, 토크나이저, 이미지 프로세서 로드
-# ---------------------------------------------------------------------
-def load_ocr_model(model_dir):
-    print(f"[INFO] Loading OCR model, tokenizer, and processor from: {model_dir}")
+def load_ocr_model_from_s3(bucket: str, s3_prefix: str):
+    """
+    S3에서 OCR 모델을 바로 로드
+    """
     try:
-        model = VisionEncoderDecoderModel.from_pretrained(model_dir)
-        tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        image_processor = AutoImageProcessor.from_pretrained(model_dir)
+        s3_path = f"s3://{bucket}/{s3_prefix}"
+        print(f"[INFO] Loading OCR model directly from S3: {s3_path}")
+        
+        model = VisionEncoderDecoderModel.from_pretrained(s3_path)
+        tokenizer = AutoTokenizer.from_pretrained(s3_path)
+        image_processor = AutoImageProcessor.from_pretrained(s3_path)
         return model, tokenizer, image_processor
     except Exception as e:
-        print(f"[ERROR] Failed to load OCR components: {e}")
+        print(f"[ERROR] Failed to load OCR model from S3: {e}")
         return None, None, None
 
 # ---------------------------------------------------------------------
-# 3. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
+# 2. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
 # ---------------------------------------------------------------------
 def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, image_processor, image_size=384):
     all_texts = []
@@ -99,16 +69,16 @@ def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, imag
 
         except Exception as e:
             print(f"[ERROR] Failed to process {image_path}: {e}")
-            all_texts.append("")  # 오류 발생 시 빈 텍스트 추가                                                                                     nd("")  # 오류 발생 시 빈 텍스트 추가
+            all_texts.append("")  # 오류 발생 시 빈 텍스트 추가
 
     return all_texts
 
 # ---------------------------------------------------------------------
-# 4. 메인 프로세스
+# 3. 메인 프로세스
 # ---------------------------------------------------------------------
 def main():
-    # 1) OCR 모델 로드
-    model, tokenizer, image_processor = load_ocr_model(OCR_LOCAL_PATH)
+    # 1) S3에서 OCR 모델 로드
+    model, tokenizer, image_processor = load_ocr_model_from_s3(MODEL_BUCKET, OCR_S3_KEY)
     if not model or not tokenizer or not image_processor:
         print("[ERROR] OCR 모델 로드에 실패했습니다.")
         return

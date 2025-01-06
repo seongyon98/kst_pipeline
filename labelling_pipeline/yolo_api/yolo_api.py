@@ -1,6 +1,6 @@
 from typing import List
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 import asyncio
 import boto3
@@ -21,14 +21,11 @@ from yolo_model import (
 )
 
 
-load_dotenv(override=True)
+load_dotenv(dotenv_path="/pipeline/.env", override=True)
 
 S3_BUCKET_NAME = os.getenv("MODEL_BUCKET_NAME")
 YOLO_MODEL_PATH = os.getenv("YOLO_MODEL_PATH")  # S3 경로
-LOCAL_YOLO_MODEL_PATH = "./models/yolov8_text_nontext.pt"  # 로컬 경로에 YOLO 모델 저장
-
-S3_IMAGE_BUCKET = os.getenv("IMAGE_BUCKET_NAME")
-S3_IMAGE_PATH = "image/P3_1_01_21114_49495.png"  # 이미지 S3 경로
+LOCAL_YOLO_MODEL_PATH = "./models/"  # 로컬 경로에 YOLO 모델 저장
 
 # S3 클라이언트 생성
 s3_client = boto3.client(
@@ -86,12 +83,17 @@ class CoordinatesResponse(BaseModel):
 
 
 @app.post("/extract_bboxes/")
-async def extract_bboxes_from_image():
+async def extract_bboxes_from_image(
+    image_path: str = Query(..., title="S3 Image Path")
+):
+    """
+    이미지의 경로를 받아 S3에서 해당 이미지를 다운로드하고, YOLO 모델을 사용하여 바운딩 박스를 추출합니다.
+    """
     try:
         # S3에서 이미지 다운로드
-        image = download_image_from_s3(S3_IMAGE_BUCKET, S3_IMAGE_PATH)
+        image = download_image_from_s3(S3_BUCKET_NAME, image_path)
         if image is None:
-            return {"error": "S3에서 이미지 로드 실패"}
+            raise HTTPException(status_code=400, detail="S3에서 이미지 로드 실패")
 
         # CRAFT 또는 YOLO+CRAFT 결과 얻기
         craft_result = process_image_with_craft(image)
@@ -124,4 +126,4 @@ async def extract_bboxes_from_image():
             "coordinates": coordinates,
         }
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))

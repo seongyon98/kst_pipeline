@@ -7,7 +7,7 @@ import tempfile
 import json
 
 # 환경 변수 로드
-load_dotenv(override=True)
+load_dotenv(dotenv_path='/pipeline/.env', override=True)
 
 # S3 설정
 s3_client = boto3.client("s3")

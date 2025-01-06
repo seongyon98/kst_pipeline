@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 
 # 환경 변수 로드
-load_dotenv(override=True)
+load_dotenv(dotenv_path='/pipeline/.env', override=True)
 
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")

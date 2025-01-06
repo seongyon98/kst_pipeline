@@ -7,7 +7,9 @@ from ultralytics import YOLO
 from io import BytesIO
 import asyncio
 from itertools import chain
+from dotenv import load_dotenv
 
+load_dotenv(dotenv_path="/pipeline/.env", override=True)
 
 # CRAFT 모델 초기화
 craft = Craft(
@@ -22,24 +24,6 @@ s3_client = boto3.client(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     region_name=os.getenv("AWS_REGION"),
 )
-
-
-# S3에서 이미지 목록 가져오기
-def list_images_in_s3(bucket_name, prefix):
-    try:
-        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-        if "Contents" not in response:
-            raise ValueError("No files found in the specified bucket and prefix.")
-        files = [
-            obj["Key"]
-            for obj in response["Contents"]
-            if obj["Key"].endswith((".png", ".jpg"))
-        ]
-        print(f"Found {len(files)} image files.")
-        return files
-    except Exception as e:
-        print(f"[ERROR] Failed to list images from S3: {e}")
-        raise e
 
 
 # S3에서 이미지 다운로드

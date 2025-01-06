@@ -7,14 +7,14 @@ from dotenv import load_dotenv
 from yolo_api.src.yolo_model import CROPPED_IMAGES_DIR  # 크롭된 이미지 폴더 경로
 
 # 환경 변수 로드
-load_dotenv(dotenv_path='/pipeline/.env', override=True)
+load_dotenv(dotenv_path="/pipeline/.env", override=True)
 
 # AWS 자격 증명
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION")
 MODEL_BUCKET = os.getenv("MODEL_BUCKET")
-OCR_S3_KEY = "ocr/final_model/final_model_1/" 
+OCR_S3_KEY = "ocr/final_model/final_model_1/"
 
 # S3 클라이언트 초기화
 s3_client = boto3.client(
@@ -23,6 +23,7 @@ s3_client = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     region_name=AWS_REGION,
 )
+
 
 # ---------------------------------------------------------------------
 # 1. OCR 모델 S3에서 바로 로드
@@ -34,7 +35,7 @@ def load_ocr_model_from_s3(bucket: str, s3_prefix: str):
     try:
         s3_path = f"s3://{bucket}/{s3_prefix}"
         print(f"[INFO] Loading OCR model directly from S3: {s3_path}")
-        
+
         model = VisionEncoderDecoderModel.from_pretrained(s3_path)
         tokenizer = AutoTokenizer.from_pretrained(s3_path)
         image_processor = AutoImageProcessor.from_pretrained(s3_path)
@@ -43,10 +44,13 @@ def load_ocr_model_from_s3(bucket: str, s3_prefix: str):
         print(f"[ERROR] Failed to load OCR model from S3: {e}")
         return None, None, None
 
+
 # ---------------------------------------------------------------------
 # 2. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
 # ---------------------------------------------------------------------
-def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, image_processor, image_size=384):
+def perform_ocr_on_cropped_images(
+    image_paths: List[str], model, tokenizer, image_processor, image_size=384
+):
     all_texts = []
     for image_path in image_paths:
         try:
@@ -59,7 +63,9 @@ def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, imag
 
             # OCR 모델 추론
             output_ids = model.generate(pixel_values, max_length=512)
-            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
+                0
+            ].strip()
 
             # all_texts: 크롭된 이미지 각각에서 추출된 개별 텍스트를 담는 리스트
             all_texts.append(decoded_text)
@@ -70,6 +76,7 @@ def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, imag
             all_texts.append("")  # 오류 발생 시 빈 텍스트 추가
 
     return all_texts
+
 
 # ---------------------------------------------------------------------
 # 3. 메인 프로세스
@@ -109,7 +116,5 @@ def main():
     final_text = " ".join(all_texts).strip()
     print(f"\n[RESULT] Combined text for LLM: {final_text}")
 
-if __name__ == "__main__":
-    main()
 
-# LLM 한테 전달할 최종 텍스트: "final_text" 
+# LLM 한테 전달할 최종 텍스트: "final_text"

@@ -4,8 +4,8 @@ from typing import Dict, Any
 
 # 각 API의 엔드포인트 URL 설정
 # YOLO_API_URL = "http://yolo_api:8000/extract_bboxes"
-OCR_API_URL = "http://127.0.0.1:8000/extract_text"
-LLM_API_URL = "http://127.0.0.1:8000/process_problem"
+OCR_API_URL = "http://ocr_api:8001/extract_text"
+LLM_API_URL = "http://llm_api:8002/process_problem"
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)

@@ -1,119 +1,117 @@
 import boto3
-from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+from PIL import Image
+from transformers import VisionEncoderDecoderModel, AutoTokenizer, AutoImageProcessor
+from typing import List
 from dotenv import load_dotenv
 import os
-from PIL import Image
-import tempfile
-import json
 
 # 환경 변수 로드
 load_dotenv(dotenv_path='/pipeline/.env', override=True)
 
-# S3 설정
-s3_client = boto3.client("s3")
-MODEL_BUCKET_NAME = os.getenv("MODEL_BUCKET_NAME")
-OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH")
-LOCAL_OCR_PATH = "/tmp/temp_ocr/"  # OCR 모델 임시 저장 경로
+# AWS 자격 증명
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION")
+MODEL_BUCKET = os.getenv("MODEL_BUCKET")
+OCR_S3_KEY = "ocr/final_model/final_model_1/" 
 
+# 크롭된 이미지 폴더 경로
+CROPPED_IMAGES_PATH = "/tmp/cropped_images"  # 임시 저장소
 
-def load_finetuned_trocr_model_from_s3():
+# S3 클라이언트 초기화
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION,
+)
+
+# ---------------------------------------------------------------------
+# 1. OCR 모델 S3에서 바로 로드
+# ---------------------------------------------------------------------
+def load_ocr_model_from_s3(bucket: str, s3_prefix: str):
+    """
+    S3에서 OCR 모델을 바로 로드
+    """
     try:
-        # 임시 디렉토리 생성
-        with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"[INFO] Temporary directory created at {temp_dir}")
-
-            # S3에서 필요한 파일 리스트 정의
-            trocr_files = [
-                "config.json",
-                "pytorch_model.bin",
-                "tokenizer.json",
-                "tokenizer_config.json",
-                "preprocessor_config.json",
-                "generation_config.json",
-            ]
-
-            # 파일 개별 다운로드
-            for file_name in trocr_files:
-                s3_file_path = f"{OCR_MODEL_PATH}/{file_name}"
-                local_file_path = os.path.join(temp_dir, file_name)
-
-                # S3에서 파일 다운로드
-                try:
-                    s3_client.download_file(
-                        MODEL_BUCKET_NAME, s3_file_path, local_file_path
-                    )
-                    print(f"[INFO] Downloaded {file_name} to {local_file_path}")
-                except Exception as e:
-                    print(f"[ERROR] Failed to download {file_name}: {e}")
-                    raise e
-
-            # 모델과 프로세서 로드
-            try:
-                processor = TrOCRProcessor.from_pretrained(temp_dir)
-                model = VisionEncoderDecoderModel.from_pretrained(temp_dir)
-                print(f"[INFO] Fine-tuned TrOCR model loaded from {temp_dir}")
-                return processor, model
-            except Exception as e:
-                print(f"[ERROR] Failed to load TrOCR model: {e}")
-                raise e
-
+        s3_path = f"s3://{bucket}/{s3_prefix}"
+        print(f"[INFO] Loading OCR model directly from S3: {s3_path}")
+        
+        model = VisionEncoderDecoderModel.from_pretrained(s3_path)
+        tokenizer = AutoTokenizer.from_pretrained(s3_path)
+        image_processor = AutoImageProcessor.from_pretrained(s3_path)
+        return model, tokenizer, image_processor
     except Exception as e:
-        print(f"[ERROR] An error occurred: {e}")
-        raise e
+        print(f"[ERROR] Failed to load OCR model from S3: {e}")
+        return None, None, None
 
+# ---------------------------------------------------------------------
+# 2. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
+# ---------------------------------------------------------------------
+def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, image_processor, image_size=384):
+    all_texts = []
+    for image_path in image_paths:
+        try:
+            # 이미지 로드 및 리사이즈
+            img = Image.open(image_path).convert("RGB")
+            img = img.resize((image_size, image_size))
 
-def extract_text_from_bboxes(processor, model, image, bboxes):
-    try:
-        image = image.resize((384, 384))  # TrOCR 입력 크기로 리사이즈
-        question_text = []
+            # 이미지 전처리
+            pixel_values = image_processor(images=img, return_tensors="pt").pixel_values
 
-        for bbox in bboxes:
-            _, x_center, y_center, width, height = bbox
+            # OCR 모델 추론
+            output_ids = model.generate(pixel_values, max_length=512)
+            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
 
-            x_min = max(0, int((x_center - width / 2) * 384))
-            y_min = max(0, int((y_center - height / 2) * 384))
-            x_max = min(384, int((x_center + width / 2) * 384))
-            y_max = min(384, int((y_center + height / 2) * 384))
+            # all_texts: 크롭된 이미지 각각에서 추출된 개별 텍스트를 담는 리스트
+            all_texts.append(decoded_text)
+            print(f"[INFO] Processed {image_path}: {decoded_text}")
 
-            if x_min >= x_max or y_min >= y_max:
-                print(
-                    "[WARNING] Skipping invalid bounding box with zero or negative area."
-                )
-                continue
+        except Exception as e:
+            print(f"[ERROR] Failed to process {image_path}: {e}")
+            all_texts.append("")  # 오류 발생 시 빈 텍스트 추가
 
-            cropped_image = image.crop((x_min, y_min, x_max, y_max))
-            inputs = processor(images=cropped_image, return_tensors="pt").pixel_values
-            outputs = model.generate(inputs)
-            text = processor.batch_decode(outputs, skip_special_tokens=True)[0]
-            question_text.append(text.strip())
+    return all_texts
 
-        # 텍스트가 없을 경우 기본 메시지 추가
-        if not question_text:
-            question_text.append("테스트 메시지입니다")
+# ---------------------------------------------------------------------
+# 3. 메인 프로세스
+# ---------------------------------------------------------------------
+def main():
+    # 1) S3에서 OCR 모델 로드
+    model, tokenizer, image_processor = load_ocr_model_from_s3(MODEL_BUCKET, OCR_S3_KEY)
+    if not model or not tokenizer or not image_processor:
+        print("[ERROR] OCR 모델 로드에 실패했습니다.")
+        return
 
-        return question_text
+    # 2) 크롭된 이미지 경로 리스트 생성
+    if not os.path.exists(CROPPED_IMAGES_PATH):
+        print(f"[ERROR] Cropped 이미지 폴더가 없습니다: {CROPPED_IMAGES_PATH}")
+        return
 
-    except Exception as e:
-        print(f"[ERROR] Failed to extract text from bounding boxes: {e}")
-        return ["테스트 메시지입니다"]  # 오류 발생 시 기본값 반환
+    image_paths = [
+        os.path.join(CROPPED_IMAGES_PATH, fname)
+        for fname in os.listdir(CROPPED_IMAGES_PATH)
+        if fname.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
 
+    if not image_paths:
+        print("[ERROR] 크롭된 이미지가 없습니다.")
+        return
 
-def save_to_json(image_id, bboxes, question_text, output_path):
-    try:
-        # 기존 JSON 파일 삭제
-        if os.path.exists(output_path):
-            os.remove(output_path)
-            print(f"[INFO] Existing JSON file deleted: {output_path}")
+    # 3) OCR 수행
+    all_texts = perform_ocr_on_cropped_images(
+        image_paths=image_paths,
+        model=model,
+        tokenizer=tokenizer,
+        image_processor=image_processor,
+        image_size=384,
+    )
 
-        data = {
-            "image_id": image_id,
-            "bboxes": bboxes,
-            "question_text": " ".join(question_text),
-        }
-        with open(output_path, "w", encoding="utf-8") as json_file:
-            json.dump(data, json_file, ensure_ascii=False, indent=4)
-        print(f"Saved JSON to {output_path}")
-        return output_path
-    except Exception as e:
-        print(f"[ERROR] Failed to save JSON: {e}")
-        raise e
+    # 4) all_texts 에 저장된 개별 텍스트를 하나의 문자열로 합침
+    final_text = " ".join(all_texts).strip()
+    print(f"\n[RESULT] Combined text for LLM: {final_text}")
+
+if __name__ == "__main__":
+    main()
+
+# LLM 한테 전달할 최종 텍스트: "final_text" 

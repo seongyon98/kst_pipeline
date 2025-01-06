@@ -157,18 +157,9 @@ def main():
         json.dump(final_result, json_file, ensure_ascii=False, indent=4)
     print(f"[INFO] OCR results saved to: {output_json_path}")
 
-# ---------------------------------------------------------------------
-# 2. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
-# ---------------------------------------------------------------------
-def perform_ocr_on_cropped_images(image_paths: List[str], model, tokenizer, image_processor, image_size=384):
-    all_texts = []
-    for image_path in image_paths:
-        try:
-            # 이미지 로드 및 리사이즈
-            img = Image.open(image_path).convert("RGB")
-            img = img.resize((image_size, image_size))
 
 if __name__ == "__main__":
     main()
+
 
 # LLM 한테 json 형태로 전달: "ocr_results.json"

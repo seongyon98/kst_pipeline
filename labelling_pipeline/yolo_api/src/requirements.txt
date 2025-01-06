@@ -8,3 +8,4 @@ opencv-python
 craft_text_detector
 torchvision==0.13.1
 numpy<2
+requests

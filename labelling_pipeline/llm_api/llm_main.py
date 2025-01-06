@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 
 # 환경 변수 로드
-load_dotenv(dotenv_path='/pipeline/.env', override=True)
+load_dotenv(dotenv_path="/pipeline/.env", override=True)
 
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -90,7 +90,7 @@ def process_multiple_problems(file_name, processed_data):
 
     try:
         # 문제 처리
-        category, leaf_category, _, _ = process_math_problem(
+        category, leaf_category, category_time, leaf_time = process_math_problem(
             problem_text=question_text,
             bucket_name=json_bucket_name,
             category_map=category_map,
@@ -102,6 +102,8 @@ def process_multiple_problems(file_name, processed_data):
 
         # PostgreSQL에 저장
         save_to_db(file_name, category, leaf_category)
+
+        return category, leaf_category, category_time, leaf_time
 
     except Exception as e:
         print(f"[ERROR] 문제 처리 실패: {e}")

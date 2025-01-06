@@ -1,9 +1,10 @@
+import os
 import boto3
 from PIL import Image
 from transformers import VisionEncoderDecoderModel, AutoTokenizer, AutoImageProcessor
 from typing import List
 from dotenv import load_dotenv
-import os
+from yolo_api.src.yolo_model import CROPPED_IMAGES_DIR  # 크롭된 이미지 폴더 경로
 
 # 환경 변수 로드
 load_dotenv(dotenv_path='/pipeline/.env', override=True)
@@ -14,9 +15,6 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION")
 MODEL_BUCKET = os.getenv("MODEL_BUCKET")
 OCR_S3_KEY = "ocr/final_model/final_model_1/" 
-
-# 크롭된 이미지 폴더 경로
-CROPPED_IMAGES_PATH = "/tmp/cropped_images"  # 임시 저장소
 
 # S3 클라이언트 초기화
 s3_client = boto3.client(
@@ -84,13 +82,13 @@ def main():
         return
 
     # 2) 크롭된 이미지 경로 리스트 생성
-    if not os.path.exists(CROPPED_IMAGES_PATH):
-        print(f"[ERROR] Cropped 이미지 폴더가 없습니다: {CROPPED_IMAGES_PATH}")
+    if not os.path.exists(CROPPED_IMAGES_DIR):
+        print(f"[ERROR] Cropped 이미지 폴더가 없습니다: {CROPPED_IMAGES_DIR}")
         return
 
     image_paths = [
-        os.path.join(CROPPED_IMAGES_PATH, fname)
-        for fname in os.listdir(CROPPED_IMAGES_PATH)
+        os.path.join(CROPPED_IMAGES_DIR, fname)
+        for fname in os.listdir(CROPPED_IMAGES_DIR)
         if fname.lower().endswith((".png", ".jpg", ".jpeg"))
     ]
 

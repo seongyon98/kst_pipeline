@@ -34,8 +34,6 @@ pyparsing==3.2.1
 PySocks==1.7.1
 python-dotenv==1.0.1
 python-multipart==0.0.20
-pytz==2024.2
-pywin32==307
 PyYAML==6.0.2
 regex==2024.11.6
 requests==2.32.3

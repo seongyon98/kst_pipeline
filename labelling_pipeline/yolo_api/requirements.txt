@@ -4,9 +4,10 @@ boto3
 ultralytics
 python-dotenv
 Pillow
-opencv-python
+opencv-python-headless
 craft_text_detector
-torchvision==0.13.1
+torch==1.12.1+cpu
+torchvision==0.13.1+cpu
 numpy<2
 requests
 python-multipart

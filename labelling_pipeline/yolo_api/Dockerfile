@@ -2,7 +2,7 @@
 FROM python:3.9
 
 # 작업 디렉토리 설정
-WORKDIR /labelling_pipeline/yolo_api
+WORKDIR /app
 
 
 # 필요한 시스템 라이브러리 설치 (예: OpenCV, PyTorch 등)
@@ -25,7 +25,7 @@ COPY models/ ./models
 RUN mkdir -p downloads cropped_images
 
 # 환경 변수 설정
-ENV PYTHONPATH=/labelling_pipeline/yolo_api/src
+ENV PYTHONPATH=/app/src
 
 # 서버 실행 명령어
-CMD ["uvicorn", "yolo_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]

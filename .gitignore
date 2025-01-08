@@ -4,7 +4,6 @@
 *.conda
 .env
 *.png
-*.json
 __pycache__/
 final_model_1/
 *.deb

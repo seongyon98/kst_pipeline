@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+boto3
+ultralytics
+python-dotenv
+Pillow
+opencv-python-headless
+craft_text_detector
+torch==1.12.1+cpu
+torchvision==0.13.1+cpu
+numpy<2
+requests
+python-multipart

@@ -1,56 +1,65 @@
 import os
-import boto3
+import json
 from PIL import Image
 from transformers import VisionEncoderDecoderModel, AutoTokenizer, AutoImageProcessor
 from typing import List
-from dotenv import load_dotenv
-from yolo_api.src.yolo_model import CROPPED_IMAGES_DIR  # 크롭된 이미지 폴더 경로
-
-# 환경 변수 로드
-load_dotenv(dotenv_path="/pipeline/.env", override=True)
-
-# AWS 자격 증명
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.getenv("AWS_REGION")
-MODEL_BUCKET = os.getenv("MODEL_BUCKET")
-OCR_S3_KEY = "ocr/final_model/final_model_1/"
-
-# S3 클라이언트 초기화
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION,
-)
 
 
-# ---------------------------------------------------------------------
-# 1. OCR 모델 S3에서 바로 로드
-# ---------------------------------------------------------------------
-def load_ocr_model_from_s3(bucket: str, s3_prefix: str):
+def ensure_preprocessor_config_if_missing(model_dir: str):
     """
-    S3에서 OCR 모델을 바로 로드
+    모델 디렉토리에 'preprocessor_config.json'이 없을 경우 기본 설정 생성
+    """
+    preproc_json_path = os.path.join(model_dir, "preprocessor_config.json")
+
+    if os.path.exists(preproc_json_path):
+        return  # 이미 파일이 존재하면 건너뜀
+
+    print("[WARN] Missing 'preprocessor_config.json'. Creating default config...")
+
+    default_config = {
+        "model_type": "deit",  # 인코더 구조
+        "image_processor_type": "DeiTImageProcessor",
+        "do_resize": True,
+        "size": 384,
+        "image_mean": [0.5, 0.5, 0.5],
+        "image_std": [0.5, 0.5, 0.5],
+    }
+
+    with open(preproc_json_path, "w", encoding="utf-8") as f:
+        json.dump(default_config, f, ensure_ascii=False, indent=2)
+    print(f"[INFO] Created 'preprocessor_config.json' at {preproc_json_path}")
+
+
+def load_ocr_model(model_path: str):
+    """
+    로컬 경로에서 OCR 모델을 로드하고,
+    모델, 토크나이저, 이미지 프로세서를 튜플로 반환한다.
     """
     try:
-        s3_path = f"s3://{bucket}/{s3_prefix}"
-        print(f"[INFO] Loading OCR model directly from S3: {s3_path}")
+        print(f"[INFO] Loading OCR model from local path: {model_path}")
 
-        model = VisionEncoderDecoderModel.from_pretrained(s3_path)
-        tokenizer = AutoTokenizer.from_pretrained(s3_path)
-        image_processor = AutoImageProcessor.from_pretrained(s3_path)
+        if not os.path.exists(model_path):
+            print(f"[ERROR] Model path does not exist: {model_path}")
+            return None, None, None
+
+        # preprocessor_config.json 확인 및 생성
+        ensure_preprocessor_config_if_missing(model_path)
+
+        model = VisionEncoderDecoderModel.from_pretrained(model_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        image_processor = AutoImageProcessor.from_pretrained(model_path)
         return model, tokenizer, image_processor
     except Exception as e:
-        print(f"[ERROR] Failed to load OCR model from S3: {e}")
+        print(f"[ERROR] Failed to load OCR model from local path: {e}")
         return None, None, None
 
 
-# ---------------------------------------------------------------------
-# 2. 크롭된 이미지 리스트를 받아 OCR을 수행하고 결과를 반환
-# ---------------------------------------------------------------------
 def perform_ocr_on_cropped_images(
-    image_paths: List[str], model, tokenizer, image_processor, image_size=384
+    image_paths: List[str], model, tokenizer, image_processor, image_size: int = 384
 ):
+    """
+    크롭된 이미지 리스트를 받아 OCR을 수행한 뒤, 각 이미지를 인식해 얻은 텍스트를 리스트로 반환한다.
+    """
     all_texts = []
     for image_path in image_paths:
         try:
@@ -67,7 +76,7 @@ def perform_ocr_on_cropped_images(
                 0
             ].strip()
 
-            # all_texts: 크롭된 이미지 각각에서 추출된 개별 텍스트를 담는 리스트
+            # 크롭된 이미지 각각에서 추출된 텍스트를 리스트에 추가
             all_texts.append(decoded_text)
             print(f"[INFO] Processed {image_path}: {decoded_text}")
 
@@ -76,45 +85,3 @@ def perform_ocr_on_cropped_images(
             all_texts.append("")  # 오류 발생 시 빈 텍스트 추가
 
     return all_texts
-
-
-# ---------------------------------------------------------------------
-# 3. 메인 프로세스
-# ---------------------------------------------------------------------
-def main():
-    # 1) S3에서 OCR 모델 로드
-    model, tokenizer, image_processor = load_ocr_model_from_s3(MODEL_BUCKET, OCR_S3_KEY)
-    if not model or not tokenizer or not image_processor:
-        print("[ERROR] OCR 모델 로드에 실패했습니다.")
-        return
-
-    # 2) 크롭된 이미지 경로 리스트 생성
-    if not os.path.exists(CROPPED_IMAGES_DIR):
-        print(f"[ERROR] Cropped 이미지 폴더가 없습니다: {CROPPED_IMAGES_DIR}")
-        return
-
-    image_paths = [
-        os.path.join(CROPPED_IMAGES_DIR, fname)
-        for fname in os.listdir(CROPPED_IMAGES_DIR)
-        if fname.lower().endswith((".png", ".jpg", ".jpeg"))
-    ]
-
-    if not image_paths:
-        print("[ERROR] 크롭된 이미지가 없습니다.")
-        return
-
-    # 3) OCR 수행
-    all_texts = perform_ocr_on_cropped_images(
-        image_paths=image_paths,
-        model=model,
-        tokenizer=tokenizer,
-        image_processor=image_processor,
-        image_size=384,
-    )
-
-    # 4) all_texts 에 저장된 개별 텍스트를 하나의 문자열로 합침
-    final_text = " ".join(all_texts).strip()
-    print(f"\n[RESULT] Combined text for LLM: {final_text}")
-
-
-# LLM 한테 전달할 최종 텍스트: "final_text"

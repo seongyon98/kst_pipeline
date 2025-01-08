@@ -1,12 +1,12 @@
 import psycopg2
 from datetime import datetime
-import boto3
 from problem_processor import process_math_problem
 from dotenv import load_dotenv
 import os
+import json
 
 # 환경 변수 로드
-load_dotenv(dotenv_path="/pipeline/.env", override=True)
+load_dotenv(dotenv_path="../pipeline/.env", override=True)
 
 POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -22,6 +22,23 @@ DB_CONFIG = {
     "host": POSTGRES_HOST,
     "port": POSTGRES_PORT,
 }
+
+# 로드맵 파일 경로 설정
+ROADMAP_FILES = {
+    "수와 연산": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/01_num_cal.json",
+    "변화와 관계": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/02_change_of_relationship.json",
+    "도형과 측정": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/03_shape_meas.json",
+    "자료와 가능성": r"D:/programming/python/chunjae/finalproject/kst_pipeline/Preprocessing/roadmap/04_data_and_possibility.json",
+}
+
+
+def load_roadmap(category):
+    """로드맵 JSON 파일 로드"""
+    file_path = ROADMAP_FILES.get(category)
+    if not file_path:
+        raise ValueError(f"로드맵 파일 경로를 찾을 수 없습니다: {category}")
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def save_to_db(file_name, category_label, leaf_label):
@@ -65,23 +82,12 @@ def save_to_db(file_name, category_label, leaf_label):
         raise e  # 에러를 상위 호출 함수로 전달
 
 
-# ocr까지 해서 전처리된 텍스트를 바로 넘겨받는다고 가정
 def process_multiple_problems(file_name, processed_data):
-    # JSON 파일 (로드맵 파일) 관련 정보
-    json_bucket_name = "big9-project-02-roadmap-bucket"  # JSON 파일이 위치한 S3 버킷
-    json_prefix = "roadmap_2022/"  # JSON 파일이 위치한 S3 폴더
-    category_map = {
-        "수와 연산": "01_num_cal.json",
-        "변화와 관계": "02_change_of_relationship.json",
-        "도형과 측정": "03_shape_meas.json",
-        "자료와 가능성": "04_data_and_possibility.json",
-    }
-
-    # 데이터가 없을 경우 예외 처리
-    if not processed_data or "question_text" not in processed_data:
+    """문제 처리 및 결과 출력"""
+    if not processed_data or "text" not in processed_data:
         raise ValueError("전처리된 데이터에 문제 텍스트가 없습니다.")
 
-    question_text = processed_data["question_text"]
+    question_text = processed_data["text"]
 
     if not question_text:
         raise ValueError("문제 텍스트가 비어있습니다.")
@@ -89,19 +95,28 @@ def process_multiple_problems(file_name, processed_data):
     print(f"문제 텍스트: {question_text}")
 
     try:
+        # 로드맵 파일 로드
+        category_map = {category: load_roadmap(category) for category in ROADMAP_FILES}
+
         # 문제 처리
         category, leaf_category, category_time, leaf_time = process_math_problem(
             problem_text=question_text,
-            bucket_name=json_bucket_name,
             category_map=category_map,
-            prefix=json_prefix,
             model="gpt-4o",  # 기본 모델을 "gpt-4o"로 설정
         )
 
-        print(f"[DEBUG] 처리 결과: 대분류: {category}, 최하위 분류: {leaf_category}")
+        # 처리 결과 출력
+        print(f"[DEBUG] 처리 결과:")
+        print(f"  파일 이름: {file_name}")
+        print(f"  대분류: {category}")
+        print(f"  최하위 분류: {leaf_category}")
+        print(f"  대분류 추출 시간: {category_time}")
+        print(f"  최하위 분류 추출 시간: {leaf_time}")
 
-        # PostgreSQL에 저장
-        save_to_db(file_name, category, leaf_category)
+        return file_name, category, leaf_category, category_time, leaf_time
+
+        # DB 저장 대신 출력으로 대체
+        # save_to_db(file_name, category, leaf_category)
 
         return category, leaf_category, category_time, leaf_time
 

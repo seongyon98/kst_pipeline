@@ -4,6 +4,8 @@ FROM python:3.9
 # 작업 디렉토리 설정
 WORKDIR /app/ocr_api
 
+# 환경 변수 설정
+ENV PYTHONPATH=/labelling_pipeline
 
 # 필요한 시스템 라이브러리 설치 (예: Tesseract, pytesseract 등)
 RUN apt-get update && apt-get install -y \
@@ -19,7 +21,7 @@ COPY ocr_api.py .
 COPY ocr_model.py .
 
 # yolo_api 폴더 복사
-COPY ./labelling_pipeline/yolo_api /app/yolo_api
+COPY ../yolo_api /labelling_pipeline/yolo_api
 
 # 서버 실행 명령어
 CMD ["uvicorn", "ocr_api:app", "--host", "0.0.0.0", "--port", "8001"]

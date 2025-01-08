@@ -23,11 +23,13 @@ async def process_problem(problem: ProblemData):
     """
     try:
         # LLM을 통해 문제 처리 및 라벨링
-        category, leaf_category, category_time, leaf_time = process_multiple_problems(
-            problem.file_name, problem.processed_data
+        file_name, category, leaf_category, category_time, leaf_time = (
+            process_multiple_problems(problem.file_name, problem.processed_data)
         )
+
+        # 처리 결과 반환
         return {
-            "file_name": problem.file_name,
+            "file_name": file_name,
             "category": category,
             "leaf_category": leaf_category,
             "category_time": category_time,

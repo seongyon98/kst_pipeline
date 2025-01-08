@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from llm_main import process_multiple_problems
 from typing import Optional
 import os
 import uvicorn
+from llm_utils import process_multiple_problems
 
 # FastAPI 애플리케이션 생성
 app = FastAPI()
@@ -23,13 +23,11 @@ async def process_problem(problem: ProblemData):
     """
     try:
         # LLM을 통해 문제 처리 및 라벨링
-        file_name, category, leaf_category, category_time, leaf_time = (
-            process_multiple_problems(problem.file_name, problem.processed_data)
+        category, leaf_category, category_time, leaf_time = process_multiple_problems(
+            problem.file_name, problem.processed_data
         )
-
-        # 처리 결과 반환
         return {
-            "file_name": file_name,
+            "file_name": problem.file_name,
             "category": category,
             "leaf_category": leaf_category,
             "category_time": category_time,

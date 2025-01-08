@@ -112,7 +112,7 @@ def extract_math_concepts(problem_text):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -146,7 +146,7 @@ def determine_major_category(math_concept):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -181,7 +181,7 @@ def extract_leaf_category_within_major_category(
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -363,7 +363,7 @@ def process_multiple_problems(file_name, s3_key, question_text):
             bucket_name=json_bucket_name,
             category_map=category_map,
             prefix=json_prefix,
-            model="gpt-4o",  # 기본 모델을 "gpt-4o"로 설정
+            model="gpt-4o-turbo",  # 기본 모델을 "gpt-4o"로 설정
         )
 
         spent_time = category_time + leaf_time

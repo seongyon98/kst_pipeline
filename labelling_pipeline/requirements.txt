@@ -4,7 +4,7 @@ boto3
 python-dotenv
 psycopg2-binary
 pydantic
-openai
+openai==0.28
 pydantic
 httpx
 ultralytics

@@ -18,7 +18,7 @@ from yolo_utils import (
     process_image_with_yolo_and_craft,
     save_coordinates,
     save_failed_boxes,
-    save_cropped_image,
+    save_cropped_image
 )
 from llm_utils import process_multiple_problems
 
@@ -57,7 +57,7 @@ try:
         "s3",
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION,
+        region_name=AWS_REGION
     )
 except Exception as e:
     logger.error(f"S3 클라이언트 초기화 실패: {str(e)}")
@@ -69,7 +69,6 @@ craft_model = None
 ocr_model = None
 ocr_tokenizer = None
 ocr_processor = None
-
 
 @app.on_event("startup")
 async def load_models():
@@ -102,10 +101,8 @@ async def load_models():
         logger.error(f"[STARTUP] Model initialization failed: {str(e)}")
         raise RuntimeError("모델 초기화 중 오류가 발생했습니다.")
 
-
 class ProcessRequest(BaseModel):
     image_s3_key: str
-
 
 class ProcessResponse(BaseModel):
     question_text: str
@@ -113,29 +110,20 @@ class ProcessResponse(BaseModel):
     label_category: str
     label_time: float
 
-
 @app.post("/process_image", response_model=ProcessResponse)
 async def process_image(request: ProcessRequest):
     try:
         logger.info("[INFO] Starting image processing...")
 
-        if (
-            not yolo_model
-            or not craft_model
-            or not all([ocr_model, ocr_tokenizer, ocr_processor])
-        ):
+        if not yolo_model or not craft_model or not all([ocr_model, ocr_tokenizer, ocr_processor]):
             raise RuntimeError("모델이 초기화되지 않았습니다.")
 
         # 디렉토리 생성
-        OUTPUT_DIR, COORDINATES_DIR, FAILED_BOXES_DIR, CROPPED_DIR = create_directories(
-            BASE_DIR
-        )
+        OUTPUT_DIR, COORDINATES_DIR, FAILED_BOXES_DIR, CROPPED_DIR = create_directories(BASE_DIR)
 
         # 최신 이미지 다운로드
         logger.info("[INFO] Downloading the latest image...")
-        local_image_path = download_latest_image_from_s3(
-            s3_client, QUESTION_BUCKET, request.image_s3_key, LOCAL_IMAGE_FOLDER
-        )
+        local_image_path = download_latest_image_from_s3(s3_client, QUESTION_BUCKET, request.image_s3_key, LOCAL_IMAGE_FOLDER)
 
         if not local_image_path or not os.path.exists(local_image_path):
             raise FileNotFoundError(f"이미지 파일을 찾을 수 없음: {local_image_path}")
@@ -147,52 +135,51 @@ async def process_image(request: ProcessRequest):
             raise ValueError(f"이미지를 읽을 수 없음: {local_image_path}")
 
         text_boxes, failed_boxes = process_image_with_yolo_and_craft(
-            image,
-            os.path.basename(local_image_path),
-            yolo_model=yolo_model,
-            craft_model=craft_model,
+            image, os.path.basename(local_image_path),
+            yolo_model=yolo_model, craft_model=craft_model
         )
 
         # 결과 저장 및 이미지 크롭
         logger.info("[INFO] Saving results and cropping images...")
-        save_coordinates(
-            text_boxes,
-            os.path.join(
-                COORDINATES_DIR, f"{os.path.basename(local_image_path)}_coordinates.txt"
-            ),
-        )
-        save_failed_boxes(
-            failed_boxes,
-            os.path.join(
-                FAILED_BOXES_DIR,
-                f"{os.path.basename(local_image_path)}_failed_boxes.txt",
-            ),
-        )
+        save_coordinates(text_boxes, os.path.join(COORDINATES_DIR, f"{os.path.basename(local_image_path)}_coordinates.txt"))
+        save_failed_boxes(failed_boxes, os.path.join(FAILED_BOXES_DIR, f"{os.path.basename(local_image_path)}_failed_boxes.txt"))
 
+        cropped_image_base_dir = os.path.join(CROPPED_DIR, os.path.splitext(os.path.basename(local_image_path))[0])
+        os.makedirs(cropped_image_base_dir, exist_ok=True)
+
+        # 각 크롭된 이미지를 해당 디렉토리에 저장
         for i, box in enumerate(text_boxes):
             x, y, w, h = cv2.boundingRect(box)
-            cropped_image = image[y : y + h, x : x + w]
-            cropped_image_path = os.path.join(
-                CROPPED_DIR, f"{os.path.basename(local_image_path)}_crop_{i}.jpg"
-            )
+            cropped_image = image[y:y+h, x:x+w]
+            cropped_image_path = os.path.join(cropped_image_base_dir, f"crop_{i}.jpg")
             save_cropped_image(cropped_image, cropped_image_path)
 
         # OCR 수행
         logger.info("[INFO] Performing OCR on cropped images...")
-        ocr_results = extract_text_from_folders(ocr_model, ocr_tokenizer, ocr_processor)
+        ocr_results = extract_text_from_folders(ocr_model, ocr_tokenizer, ocr_processor, cropped_image_base_dir)
+
+        # 결과가 dict 타입인지 확인
+        logger.info(f"[INFO] OCR 결과 형식: {type(ocr_results)}")
+        # OCR 결과 구조 확인
+        logger.info(f"[DEBUG] OCR 결과 전체: {ocr_results}")
+        logger.info(f"[DEBUG] OCR 결과 리스트: {ocr_results.get('ocr_results', 'None')}")
+
+
+        # OCR 결과 처리
         if isinstance(ocr_results, dict) and "ocr_results" in ocr_results:
-            # OCR 결과에서 "text" 값만 추출
-            question_texts = [
-                item["text"]
-                for item in ocr_results["ocr_results"].values()
-                if "text" in item
-            ]
+            ocr_result_items = ocr_results["ocr_results"]
+            
+            # 리스트 검증
+            if not isinstance(ocr_result_items, list) or not ocr_result_items:
+                raise ValueError("[ERROR] OCR 결과 리스트가 비어있거나 올바르지 않습니다.")
+            
+            # OCR 결과가 리스트 형태로 텍스트 문자열을 포함
+            question_texts = [text.strip() for text in ocr_result_items if isinstance(text, str) and text.strip()]
+            
             if not question_texts:
-                raise ValueError(
-                    "[ERROR] OCR 결과에서 'text' 데이터를 추출하지 못했습니다."
-                )
+                raise ValueError("[ERROR] OCR 결과에서 'text' 데이터를 추출하지 못했습니다.")
         else:
-            raise ValueError("[ERROR] OCR 결과가 올바르지 않습니다.")
+            raise ValueError(f"[ERROR] OCR 결과가 올바르지 않습니다: {ocr_results}")
 
         # LLM에 전달할 문제 텍스트 생성
         problem_text = " ".join(question_texts)
@@ -201,16 +188,14 @@ async def process_image(request: ProcessRequest):
 
         # 수학 개념 추출 및 대분류 결정
         logger.info("[INFO] Extracting math concepts and determining major category...")
-        category, leaf_category, category_time, leaf_time = process_multiple_problems(
-            request.image_s3_key, QUESTION_BUCKET, problem_text
-        )
+        category, leaf_category, category_time, leaf_time = process_multiple_problems(request.image_s3_key, QUESTION_BUCKET, problem_text)
 
         logger.info("[INFO] Image processing completed successfully.")
         return ProcessResponse(
             question_text=problem_text,
             major_category=category,
             label_category=leaf_category,
-            label_time=category_time + leaf_time,
+            label_time=category_time + leaf_time
         )
 
     except Exception as e:

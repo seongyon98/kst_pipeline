@@ -192,70 +192,43 @@ import json
 import os
 
 def extract_text_from_folders(
-    ocr_model, ocr_tokenizer, ocr_processor
+    ocr_model, ocr_tokenizer, ocr_processor, cropped_image_base_dir
 ):
     """
-    여러 자식 폴더를 포함한 크롭된 이미지를 OCR 처리하고 결과를 반환
+    주어진 폴더에서 OCR을 수행하고 결과를 반환합니다.
     """
     try:
-        # 자식 폴더 확인
-        if not os.path.exists(CROPPED_IMAGES_DIR):
-            print(f"[ERROR] Cropped images directory not found: {CROPPED_IMAGES_DIR}")
-            return
-
-        # 자식 폴더 리스트
-        subfolders = [
-            os.path.join(CROPPED_IMAGES_DIR, folder)
-            for folder in os.listdir(CROPPED_IMAGES_DIR)
-            if os.path.isdir(os.path.join(CROPPED_IMAGES_DIR, folder))
+        # 폴더 내의 이미지 파일들을 처리
+        image_paths = [
+            os.path.join(cropped_image_base_dir, fname)
+            for fname in sorted(os.listdir(cropped_image_base_dir))
+            if fname.lower().endswith((".png", ".jpg", ".jpeg"))
         ]
-        if not subfolders:
-            print("[ERROR] No subfolders found in the cropped images directory.")
-            return
 
-        # 결과 저장
-        folder_results = {}
+        if not image_paths:
+            print(f"[WARN] No images found in {cropped_image_base_dir}. Skipping...")
+            return []
 
-        for subfolder in sorted(subfolders):
-            print(f"[INFO] Processing folder: {subfolder}")
+        # OCR 처리
+        folder_texts = perform_ocr_on_cropped_images(
+            image_paths=image_paths,
+            model=ocr_model,
+            tokenizer=ocr_tokenizer,
+            image_processor=ocr_processor,
+            image_size=384,
+        )
 
-            # 이미지 파일 리스트 (오름차순 정렬)
-            image_paths = [
-                os.path.join(subfolder, fname)
-                for fname in sorted(os.listdir(subfolder))
-                if fname.lower().endswith((".png", ".jpg", ".jpeg"))
-            ]
-
-            if not image_paths:
-                print(f"[WARN] No images found in {subfolder}. Skipping...")
-                continue
-
-            # OCR 수행
-            folder_texts = perform_ocr_on_cropped_images(
-                image_paths=image_paths,
-                model=ocr_model,
-                tokenizer=ocr_tokenizer,
-                image_processor=ocr_processor,
-                image_size=384,
-            )
-
-            # 폴더 이름을 키로 결과 저장 (LLM 형식으로 변환)
-            folder_name = os.path.basename(subfolder)
-            folder_results[folder_name] = {"text": " ".join(folder_texts).strip()}
-            
-        # 최종 결과 JSON 생성 및 저장
-        result = {
-            "cropped_images_dir": CROPPED_IMAGES_DIR,
-            "ocr_results": folder_results,
-        }
-
-        # 결과 저장
-        result_json_path = os.path.join(CROPPED_IMAGES_DIR, "ocr_results.json")
-        with open(result_json_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"[INFO] OCR 결과를 저장했습니다: {result_json_path}")
-
-        return result
-
+        # 결과가 리스트 형태일 경우
+        if isinstance(folder_texts, list):
+            return {"ocr_results": folder_texts}
+        
+        # 결과가 단일 문자열일 경우
+        elif isinstance(folder_texts, str):
+            return {"ocr_results": [{"text": folder_texts}]}
+        
+        else:
+            raise ValueError("[ERROR] OCR 결과 형식이 예상과 다릅니다.")
+        
     except Exception as e:
         print(f"[ERROR] Failed to process images: {e}")
+        return {"ocr_results": []}

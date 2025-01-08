@@ -3,7 +3,7 @@ name: CI/CD Pipeline for labelling
 on:
   push:
     branches:
-      - main
+      - labelling_pipeline
 
 jobs:
   build-and-deploy:

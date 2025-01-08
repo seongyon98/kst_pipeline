@@ -6,9 +6,6 @@ from typing import Dict
 import cv2
 import boto3
 from dotenv import load_dotenv
-import asyncio
-from typing import List
-
 
 # 제공된 파일들에서 함수 임포트
 from ocr_utils import load_ocr_model_from_s3, extract_text_from_folders
@@ -21,7 +18,7 @@ from yolo_utils import (
     process_image_with_yolo_and_craft,
     save_coordinates,
     save_failed_boxes,
-    save_cropped_image
+    save_cropped_image,
 )
 from llm_utils import process_multiple_problems
 
@@ -60,7 +57,7 @@ try:
         "s3",
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
+        region_name=AWS_REGION,
     )
 except Exception as e:
     logger.error(f"S3 클라이언트 초기화 실패: {str(e)}")
@@ -72,6 +69,7 @@ craft_model = None
 ocr_model = None
 ocr_tokenizer = None
 ocr_processor = None
+
 
 @app.on_event("startup")
 async def load_models():
@@ -104,8 +102,10 @@ async def load_models():
         logger.error(f"[STARTUP] Model initialization failed: {str(e)}")
         raise RuntimeError("모델 초기화 중 오류가 발생했습니다.")
 
+
 class ProcessRequest(BaseModel):
     image_s3_key: str
+
 
 class ProcessResponse(BaseModel):
     question_text: str
@@ -114,66 +114,28 @@ class ProcessResponse(BaseModel):
     label_time: float
 
 
-# 여러 파일이 들어올 경우 배치 처리
-# 업로드된 파일 목록을 저장할 리스트
-uploaded_files = []
-
-# 배치 처리 대기 시간 (초)
-BATCH_WAIT_TIME = 30
-
-# asyncio.Lock을 사용해서 동시성 문제 방지
-upload_lock = asyncio.Lock()
-
-async def process_batch_files():
-    global uploaded_files
-    # 일정 시간 기다린 후 배치 처리
-    await asyncio.sleep(BATCH_WAIT_TIME)
-
-    async with upload_lock:  # 동시성 문제 방지를 위한 lock 사용
-        if uploaded_files:
-            logger.info(f"[INFO] Starting batch processing for {len(uploaded_files)} files.")
-            for file_key in uploaded_files:
-                # 각 파일에 대해 이미지 처리 함수 호출
-                # 비동기적으로 처리하되, 순차적으로 진행
-                await process_image(ProcessRequest(image_s3_key=file_key))
-            uploaded_files.clear()
-        else:
-            logger.info("[INFO] No files to process in the batch.")
-
-
-@app.post("/upload_files/")
-async def upload_files(request: List[ProcessRequest]):
-    try:
-        global uploaded_files
-
-        # S3에 이미지를 업로드한 후, 파일 키를 리스트에 추가
-        async with upload_lock:  # 동시성 문제 방지를 위한 lock 사용
-            for req in request:
-                uploaded_files.append(req.image_s3_key)
-
-        # 배치 처리 시작
-        asyncio.create_task(process_batch_files())
-
-        return {"status": "queued", "files": [req.image_s3_key for req in request]}
-    except Exception as e:
-        logger.error(f"[ERROR] File upload failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/process_image", response_model=ProcessResponse)
 async def process_image(request: ProcessRequest):
     try:
         logger.info("[INFO] Starting image processing...")
 
-        if not yolo_model or not craft_model or not all([ocr_model, ocr_tokenizer, ocr_processor]):
+        if (
+            not yolo_model
+            or not craft_model
+            or not all([ocr_model, ocr_tokenizer, ocr_processor])
+        ):
             raise RuntimeError("모델이 초기화되지 않았습니다.")
 
         # 디렉토리 생성
-        OUTPUT_DIR, COORDINATES_DIR, FAILED_BOXES_DIR, CROPPED_DIR = create_directories(BASE_DIR)
+        OUTPUT_DIR, COORDINATES_DIR, FAILED_BOXES_DIR, CROPPED_DIR = create_directories(
+            BASE_DIR
+        )
 
         # 최신 이미지 다운로드
         logger.info("[INFO] Downloading the latest image...")
-        local_image_path = download_latest_image_from_s3(s3_client, QUESTION_BUCKET, request.image_s3_key, LOCAL_IMAGE_FOLDER)
+        local_image_path = download_latest_image_from_s3(
+            s3_client, QUESTION_BUCKET, request.image_s3_key, LOCAL_IMAGE_FOLDER
+        )
 
         if not local_image_path or not os.path.exists(local_image_path):
             raise FileNotFoundError(f"이미지 파일을 찾을 수 없음: {local_image_path}")
@@ -185,30 +147,50 @@ async def process_image(request: ProcessRequest):
             raise ValueError(f"이미지를 읽을 수 없음: {local_image_path}")
 
         text_boxes, failed_boxes = process_image_with_yolo_and_craft(
-            image, os.path.basename(local_image_path),
-            yolo_model=yolo_model, craft_model=craft_model
+            image,
+            os.path.basename(local_image_path),
+            yolo_model=yolo_model,
+            craft_model=craft_model,
         )
 
         # 결과 저장 및 이미지 크롭
         logger.info("[INFO] Saving results and cropping images...")
-        save_coordinates(text_boxes, os.path.join(COORDINATES_DIR, f"{os.path.basename(local_image_path)}_coordinates.txt"))
-        save_failed_boxes(failed_boxes, os.path.join(FAILED_BOXES_DIR, f"{os.path.basename(local_image_path)}_failed_boxes.txt"))
+        save_coordinates(
+            text_boxes,
+            os.path.join(
+                COORDINATES_DIR, f"{os.path.basename(local_image_path)}_coordinates.txt"
+            ),
+        )
+        save_failed_boxes(
+            failed_boxes,
+            os.path.join(
+                FAILED_BOXES_DIR,
+                f"{os.path.basename(local_image_path)}_failed_boxes.txt",
+            ),
+        )
 
         for i, box in enumerate(text_boxes):
             x, y, w, h = cv2.boundingRect(box)
-            cropped_image = image[y:y+h, x:x+w]
-            cropped_image_path = os.path.join(CROPPED_DIR, f"{os.path.basename(local_image_path)}_crop_{i}.jpg")
+            cropped_image = image[y : y + h, x : x + w]
+            cropped_image_path = os.path.join(
+                CROPPED_DIR, f"{os.path.basename(local_image_path)}_crop_{i}.jpg"
+            )
             save_cropped_image(cropped_image, cropped_image_path)
 
-        # OCR 수행
         # OCR 수행
         logger.info("[INFO] Performing OCR on cropped images...")
         ocr_results = extract_text_from_folders(ocr_model, ocr_tokenizer, ocr_processor)
         if isinstance(ocr_results, dict) and "ocr_results" in ocr_results:
             # OCR 결과에서 "text" 값만 추출
-            question_texts = [item["text"] for item in ocr_results["ocr_results"].values() if "text" in item]
+            question_texts = [
+                item["text"]
+                for item in ocr_results["ocr_results"].values()
+                if "text" in item
+            ]
             if not question_texts:
-                raise ValueError("[ERROR] OCR 결과에서 'text' 데이터를 추출하지 못했습니다.")
+                raise ValueError(
+                    "[ERROR] OCR 결과에서 'text' 데이터를 추출하지 못했습니다."
+                )
         else:
             raise ValueError("[ERROR] OCR 결과가 올바르지 않습니다.")
 
@@ -219,14 +201,16 @@ async def process_image(request: ProcessRequest):
 
         # 수학 개념 추출 및 대분류 결정
         logger.info("[INFO] Extracting math concepts and determining major category...")
-        category, leaf_category, category_time, leaf_time = process_multiple_problems(request.image_s3_key, QUESTION_BUCKET, problem_text)
+        category, leaf_category, category_time, leaf_time = process_multiple_problems(
+            request.image_s3_key, QUESTION_BUCKET, problem_text
+        )
 
         logger.info("[INFO] Image processing completed successfully.")
         return ProcessResponse(
             question_text=problem_text,
             major_category=category,
             label_category=leaf_category,
-            label_time=category_time + leaf_time
+            label_time=category_time + leaf_time,
         )
 
     except Exception as e:

@@ -30,7 +30,7 @@ jobs:
       # 3. Docker 이미지 빌드
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY/labelling:latest /labelling_pipeline
+          docker build -t $ECR_REPOSITORY/labelling:latest
 
       # 4. ECR 로그인
       - name: Log in to Amazon ECR

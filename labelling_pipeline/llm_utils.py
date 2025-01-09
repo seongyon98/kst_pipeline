@@ -112,7 +112,7 @@ def extract_math_concepts(problem_text):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -146,7 +146,7 @@ def determine_major_category(math_concept):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -181,7 +181,7 @@ def extract_leaf_category_within_major_category(
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4o-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -197,14 +197,10 @@ def extract_leaf_category_within_major_category(
         return None
 
 
+
 # 문제 데이터 처리
 def process_math_problem(
-    problem_text,
-    bucket_name,
-    category_map,
-    prefix,
-    figure_text=None,
-    model="gjpt-4-turbo",
+    problem_text, bucket_name, category_map, prefix, figure_text=None, model="gpt-4"
 ):
     """
     문제를 분석하여 대분류 및 최하위 분류를 추출합니다.
@@ -216,7 +212,7 @@ def process_math_problem(
     - category_map (dict): 대분류와 S3 파일 매핑
     - prefix (str): S3 경로 접두사
     - figure_text (str, optional): 문제와 관련된 그림 설명 텍스트
-    - model (str): GPT 모델 이름 (기본값: "gjpt-4-turbo")
+    - model (str): GPT 모델 이름 (기본값: "gpt-4")
 
     Returns:
     - tuple: (대분류, 최하위 분류, 대분류 추출 시간, 최하위 분류 추출 시간)
@@ -270,7 +266,6 @@ def process_math_problem(
     # Step 3: 결과 반환
     return major_category, leaf_category_data, category_time, leaf_time
 
-
 def save_file_record(file_name, s3_key):
     """upload_filerecord에 파일 메타데이터를 저장"""
     try:
@@ -286,7 +281,7 @@ def save_file_record(file_name, s3_key):
             INSERT INTO upload_filerecord (file_name, s3_key, status, uploaded_at)
             VALUES (%s, %s, %s, %s) RETURNING id;
             """,
-            (file_name, s3_key, "complete", datetime.now()),
+            (file_name, s3_key, 'complete', datetime.now())
         )
 
         # 삽입된 file_record id 가져오기
@@ -304,7 +299,7 @@ def save_file_record(file_name, s3_key):
     except Exception as e:
         print(f"[ERROR] 파일 메타데이터 저장 실패: {e}")
         raise e  # 에러를 상위 호출 함수로 전달
-
+    
 
 def save_to_db(file_name, s3_key, category, leaf_category):
     """결과를 PostgreSQL에 저장 (psycopg2 사용)"""
@@ -341,7 +336,7 @@ def save_to_db(file_name, s3_key, category, leaf_category):
     except Exception as e:
         print(f"[ERROR] 저장 실패: {e}")
         raise e  # 에러를 상위 호출 함수로 전달
-
+    
 
 # ocr까지 해서 전처리된 텍스트를 바로 넘겨받는다고 가정
 def process_multiple_problems(file_name, s3_key, question_text):
@@ -355,6 +350,7 @@ def process_multiple_problems(file_name, s3_key, question_text):
         "자료와 가능성": "04_data_and_possibility.json",
     }
 
+
     if not question_text:
         raise ValueError("문제 텍스트가 비어있습니다.")
 
@@ -367,14 +363,12 @@ def process_multiple_problems(file_name, s3_key, question_text):
             bucket_name=json_bucket_name,
             category_map=category_map,
             prefix=json_prefix,
-            model="gjpt-4-turbo",  # 기본 모델을 "gjpt-4-turbo"로 설정
+            model="gpt-4o-turbo",  # 기본 모델을 "gpt-4o"로 설정
         )
 
         spent_time = category_time + leaf_time
 
-        print(
-            f"[DEBUG] 처리 결과: 대분류: {category}, 최하위 분류: {leaf_category}, 처리 시간: {spent_time}"
-        )
+        print(f"[DEBUG] 처리 결과: 대분류: {category}, 최하위 분류: {leaf_category}, 처리 시간: {spent_time}")
 
         # PostgreSQL에 저장
         save_to_db(file_name, s3_key, category, leaf_category)

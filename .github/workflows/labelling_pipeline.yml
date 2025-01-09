@@ -45,8 +45,13 @@ jobs:
       # 6. SSH 키 설정
       - name: Add SSH key
         run: |
+          mkdir -p ~/.ssh
           echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          # SSH Config 설정 (필요시)
+          echo "Host *" > ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
 
       # 7. EC2에 배포
       - name: Deploy to EC2

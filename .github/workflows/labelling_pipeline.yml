@@ -30,7 +30,7 @@ jobs:
       # 3. Docker 이미지 빌드
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY/labelling:latest -f labelling_pipeline/Dockerfile .
+          docker build -t $ECR_REPOSITORY:latest -f labelling_pipeline/Dockerfile .
 
       # 4. ECR 로그인
       - name: Log in to Amazon ECR
@@ -40,7 +40,7 @@ jobs:
       # 5. Docker 이미지 ECR에 푸시
       - name: Push Docker image to ECR
         run: |
-          docker push $ECR_REPOSITORY/labelling:latest
+          docker push $ECR_REPOSITORY:latest
 
       # 6. SSH 키 설정
       - name: Add SSH key
@@ -56,9 +56,9 @@ jobs:
             docker stop labelling-container || echo "No container to stop."
             docker rm labelling-container || echo "No container to remove."
             # ECR에서 최신 이미지 풀
-            docker pull $ECR_REPOSITORY/labelling:latest
+            docker pull $ECR_REPOSITORY:latest
             # 새 컨테이너 실행
-            docker run -d -p 8000:8000 --name labelling-container $ECR_REPOSITORY/labelling:latest
+            docker run -d -p 8000:8000 --name labelling-container $ECR_REPOSITORY:latest
           EOF
 
       # 8. (선택 사항) EC2 서버 로그 출력 (디버깅 용도)

@@ -61,9 +61,9 @@ jobs:
             docker stop labelling-container || echo "No container to stop."
             docker rm labelling-container || echo "No container to remove."
             # ECR에서 최신 이미지 풀
-            docker pull $ECR_REPOSITORY:latest
+            docker pull $ECR_REPOSITORY/labelling:latest
             # 새 컨테이너 실행
-            docker run -d -p 8000:8000 --name labelling-container $ECR_REPOSITORY:latest
+            docker run -d -p 8000:8000 --name labelling-container $ECR_REPOSITORY/labelling:latest
           EOF
 
       # 8. (선택 사항) EC2 서버 로그 출력 (디버깅 용도)

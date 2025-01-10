@@ -112,7 +112,7 @@ def extract_math_concepts(problem_text):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -146,7 +146,7 @@ def determine_major_category(math_concept):
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -181,7 +181,7 @@ def extract_leaf_category_within_major_category(
     )
     try:
         response = openai.ChatCompletion.create(
-            model="gjpt-4-turbo",
+            model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
@@ -204,7 +204,7 @@ def process_math_problem(
     category_map,
     prefix,
     figure_text=None,
-    model="gjpt-4-turbo",
+    model="gpt-4-turbo",
 ):
     """
     문제를 분석하여 대분류 및 최하위 분류를 추출합니다.
@@ -216,7 +216,7 @@ def process_math_problem(
     - category_map (dict): 대분류와 S3 파일 매핑
     - prefix (str): S3 경로 접두사
     - figure_text (str, optional): 문제와 관련된 그림 설명 텍스트
-    - model (str): GPT 모델 이름 (기본값: "gjpt-4-turbo")
+    - model (str): GPT 모델 이름 (기본값: "gpt-4")
 
     Returns:
     - tuple: (대분류, 최하위 분류, 대분류 추출 시간, 최하위 분류 추출 시간)
@@ -367,7 +367,7 @@ def process_multiple_problems(file_name, s3_key, question_text):
             bucket_name=json_bucket_name,
             category_map=category_map,
             prefix=json_prefix,
-            model="gjpt-4-turbo",  # 기본 모델을 "gjpt-4-turbo"로 설정
+            model="gpt-4-turbo",  # 기본 모델을 "gpt-4o"로 설정
         )
 
         spent_time = category_time + leaf_time

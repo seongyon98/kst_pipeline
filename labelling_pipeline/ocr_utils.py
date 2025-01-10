@@ -25,7 +25,7 @@ s3_client = boto3.client(
     "s3",
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
+    region_name=AWS_REGION,
 )
 
 # 필수 파일 목록
@@ -38,8 +38,9 @@ REQUIRED_FILES = [
     "special_tokens_map.json",
     "tokenizer_config.json",
     "tokenizer.json",
-    "vocab.json"
+    "vocab.json",
 ]
+
 
 def download_from_s3(bucket: str, key: str, local_path: str):
     """
@@ -53,7 +54,10 @@ def download_from_s3(bucket: str, key: str, local_path: str):
         print(f"[ERROR] S3 파일 다운로드 실패: {key}, {e}")
         raise
 
-def download_all_model_files(bucket: str, s3_prefix: str, local_dir: str, required_files: List[str]):
+
+def download_all_model_files(
+    bucket: str, s3_prefix: str, local_dir: str, required_files: List[str]
+):
     """
     S3에서 모델 파일 전체를 다운로드하고, 필수 파일이 모두 존재하는지 확인합니다.
     """
@@ -75,7 +79,7 @@ def download_all_model_files(bucket: str, s3_prefix: str, local_dir: str, requir
     for obj in response["Contents"]:
         s3_key = obj["Key"]
         # 디렉토리는 무시
-        if s3_key.endswith('/'):
+        if s3_key.endswith("/"):
             continue
         filename = os.path.basename(s3_key)
         local_path = os.path.join(local_dir, filename)
@@ -94,6 +98,7 @@ def download_all_model_files(bucket: str, s3_prefix: str, local_dir: str, requir
     print("[INFO] 모든 필수 모델 파일이 성공적으로 다운로드되었습니다.")
     return True
 
+
 def ensure_preprocessor_config_if_missing(model_dir: str):
     """
     모델 디렉토리에 'preprocessor_config.json'이 없을 경우 기본 설정을 생성합니다.
@@ -103,7 +108,9 @@ def ensure_preprocessor_config_if_missing(model_dir: str):
     if os.path.exists(preproc_json_path):
         return  # 이미 파일이 존재하면 건너뜀
 
-    print("[WARN] 'preprocessor_config.json' 파일이 없습니다. 기본 설정을 생성합니다...")
+    print(
+        "[WARN] 'preprocessor_config.json' 파일이 없습니다. 기본 설정을 생성합니다..."
+    )
 
     default_config = {
         "model_type": "deit",  # 인코더 구조
@@ -116,9 +123,14 @@ def ensure_preprocessor_config_if_missing(model_dir: str):
 
     with open(preproc_json_path, "w", encoding="utf-8") as f:
         json.dump(default_config, f, ensure_ascii=False, indent=2)
-    print(f"[INFO] 기본 'preprocessor_config.json' 파일을 생성했습니다: {preproc_json_path}")
+    print(
+        f"[INFO] 기본 'preprocessor_config.json' 파일을 생성했습니다: {preproc_json_path}"
+    )
 
-def load_ocr_model_from_s3(bucket: str, s3_prefix: str, model_dir: str, required_files: List[str]):
+
+def load_ocr_model_from_s3(
+    bucket: str, s3_prefix: str, model_dir: str, required_files: List[str]
+):
     """
     S3에서 모델 파일을 다운로드하고, 필수 파일이 모두 존재하면 로컬에서 모델을 로드합니다.
     누락된 파일이 있을 경우 기본 trocr 모델을 로드합니다.
@@ -158,6 +170,7 @@ def load_ocr_model_from_s3(bucket: str, s3_prefix: str, model_dir: str, required
         print(f"[ERROR] 기본 trocr 모델 로드 실패: {e}")
         return None, None, None
 
+
 def perform_ocr_on_cropped_images(
     image_paths: List[str], model, tokenizer, image_processor, image_size=384
 ):
@@ -176,7 +189,9 @@ def perform_ocr_on_cropped_images(
 
             # OCR 모델 추론
             output_ids = model.generate(pixel_values, max_length=512)
-            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+            decoded_text = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[
+                0
+            ].strip()
 
             # 크롭된 이미지 각각에서 추출된 텍스트를 리스트에 추가
             all_texts.append(decoded_text)
@@ -188,8 +203,10 @@ def perform_ocr_on_cropped_images(
 
     return all_texts
 
+
 import json
 import os
+
 
 def extract_text_from_folders(
     ocr_model, ocr_tokenizer, ocr_processor, cropped_image_base_dir
@@ -221,14 +238,14 @@ def extract_text_from_folders(
         # 결과가 리스트 형태일 경우
         if isinstance(folder_texts, list):
             return {"ocr_results": folder_texts}
-        
+
         # 결과가 단일 문자열일 경우
         elif isinstance(folder_texts, str):
             return {"ocr_results": [{"text": folder_texts}]}
-        
+
         else:
             raise ValueError("[ERROR] OCR 결과 형식이 예상과 다릅니다.")
-        
+
     except Exception as e:
         print(f"[ERROR] Failed to process images: {e}")
         return {"ocr_results": []}

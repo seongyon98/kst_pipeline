@@ -35,11 +35,11 @@ load_dotenv(override=True)
 # AWS 설정
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_REGION = os.getenv("AWS_REGION", "ap-northeast-2")
 MODEL_BUCKET = os.getenv("MODEL_BUCKET_NAME")
-OCR_S3_KEY = f"ocr/final_model/{os.getenv('OCR_S3_KEY')}"  # 실제 모델 저장 경로로 수정(models/ocr_training/)
+OCR_S3_KEY = f"models/{os.getenv('OCR_S3_KEY')}"
 QUESTION_BUCKET = os.getenv("IMAGE_BUCKET_NAME")
-YOLO_S3_KEY = f"{os.getenv('YOLO_MODEL_PATH')}"  # 실제 모델 저장 경로로 수정(models/yolo_training/)
+YOLO_S3_KEY = f"models/yolo_training/{os.getenv('YOLO_MODEL_PATH')}"
 
 # 로컬 저장 경로
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # 현재 스크립트 경로
